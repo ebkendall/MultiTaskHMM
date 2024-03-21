@@ -43,11 +43,11 @@ log_likelihood_fnc <- function(par, par_index, y, id) {
         log_norm = 0
         val = 1
 
-        for(k in 2:nrow(y_i)) {
+        for(t in 2:nrow(y_i)) {
 
-            d_1 = dmvnorm(y_i[k, ], mean = m_1, sigma = cov_1)
-            d_2 = dmvnorm(y_i[k, ], mean = m_2, sigma = cov_2)
-            d_3 = dmvnorm(y_i[k, ], mean = m_3, sigma = cov_3)
+            d_1 = dmvnorm(y_i[t, ], mean = m_1, sigma = cov_1)
+            d_2 = dmvnorm(y_i[t, ], mean = m_2, sigma = cov_2)
+            d_3 = dmvnorm(y_i[t, ], mean = m_3, sigma = cov_3)
 
             val = f_i %*% P %*% diag(c(d_1, d_2, d_3))
 
@@ -62,10 +62,44 @@ log_likelihood_fnc <- function(par, par_index, y, id) {
     return(log_total_val)
 }
 
-forward_proc <- function(par, par_index, y, id) {
-    
+# -----------------------------------------------------------------------------
+# THOUGHTS??
+# I think we should be able to precompute alpha and beta for all time points, t,
+# at the start of each EM step that way we aren't computing the recursive alg.
+# for each successive time point 
+# -----------------------------------------------------------------------------
+
+
+forward_proc <- function(state_l, m_list, cov_list, init, P, y_i, t) {
+
+    # m_list[[state_l]] = mean for state = l
+    # cov_list[[state_l]] = covariance for state = l
+
+    if(t == 1) {
+        # Basecase
+        alpha_l_1 = init[state_l] * dmvnorm(y_i[t, ],mean = m_list[[state_l]], 
+                                                    sigma = cov_list[[state_l]])
+        return(alpha_l_1)
+
+    } else {
+        # Recursive step
+
+
+    }
+
 }
 
-backward_proc <- function(par, par_index, y, id) {
+backward_proc <- function(state_l, m_list, cov_list, init, P, y_i, t) {
+
+    # Recursive procedure
+
+    if(t == 1) {
+        # Basecase
+
+    } else {
+        # Recursive step
+
+    }
+
 
 }
