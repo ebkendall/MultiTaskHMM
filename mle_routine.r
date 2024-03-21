@@ -62,6 +62,16 @@ log_likelihood_fnc <- function(par, par_index, y, id) {
     return(log_total_val)
 }
 
+baum_welch_one_environment <- function(par, par_index, y, id) {
+
+    eps <- 1e-4
+
+    # while (difference > eps) {
+    # 
+    # }
+}
+
+
 # -----------------------------------------------------------------------------
 # THOUGHTS??
 # I think we should be able to precompute alpha and beta for all time points, t,

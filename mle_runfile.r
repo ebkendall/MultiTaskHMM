@@ -35,3 +35,4 @@ if(simulation) {
     # Load whatever real data we get
 }
 
+par_est <- baum_welch_one_environment(init_val, par_index, y, id)
