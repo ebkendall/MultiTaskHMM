@@ -80,36 +80,50 @@ baum_welch_one_environment <- function(par, par_index, y, id) {
 # -----------------------------------------------------------------------------
 
 
-forward_proc <- function(state_l, m_list, cov_list, init, P, y_i, t) {
+forward_proc <- function(l, m_list, cov_list, init, P, y_i, t) {
 
-    # m_list[[state_l]] = mean for state = l
-    # cov_list[[state_l]] = covariance for state = l
+    # m_list[[l]] = mean for state = l
+    # cov_list[[l]] = covariance for state = l
 
     if(t == 1) {
         # Basecase
-        alpha_l_1 = init[state_l] * dmvnorm(y_i[t, ],mean = m_list[[state_l]], 
-                                                    sigma = cov_list[[state_l]])
-        return(alpha_l_1)
+        b_l_t = dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]])
+        alpha_l_t = init[l] * b_l_t
+
+        return(alpha_l_t)
 
     } else {
         # Recursive step
+        b_l_t = dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]])
 
+        alpha_sum = 0
+        for(j in 1:3) {
+            alpha_sum = alpha_sum + P[l,j] * forward_proc(j, m_list, cov_list, init, P, y_i, t-1)
+        }
 
+        return(b_l_t * alpha_sum)
     }
-
 }
 
-backward_proc <- function(state_l, m_list, cov_list, init, P, y_i, t) {
+backward_proc <- function(l, m_list, cov_list, init, P, y_i, t) {
 
-    # Recursive procedure
+    # m_list[[l]] = mean for state = l
+    # cov_list[[l]] = covariance for state = l
 
-    if(t == 1) {
+    if(t == nrow(y_i)) {
         # Basecase
+        return(1)
 
     } else {
         # Recursive step
+        beta_sum = 0
+        for(j in 1:3) {
+            b_j_t = dmvnorm(y_i[t, ], mean = m_list[[j]], sigma = cov_list[[j]])
+
+            beta_sum = beta_sum + P[l,j] * b_j_t * backward_proc(j, m_list, cov_list, init, P, y_i, t+1)
+        }
+
+        return(beta_sum)
 
     }
-
-
 }
