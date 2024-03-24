@@ -78,9 +78,45 @@ baum_welch_one_environment <- function(par, par_index, y, id) {
 # at the start of each EM step that way we aren't computing the recursive alg.
 # for each successive time point 
 # -----------------------------------------------------------------------------
+gamma_calc <- function(t, l, m_list, cov_list, init, P, y_i) {
+    alpha_t_vec = NULL
+    beta_t_vec  = NULL
 
+    for(i in 1:3) {
+        alpha_t_vec[i] = forward_proc(t, i, m_list, cov_list, init, P, y_i)
+        beta_t_vec[i]  = backward_proc(t, i, m_list, cov_list, init, P, y_i)
+    }
 
-forward_proc <- function(l, m_list, cov_list, init, P, y_i, t) {
+    gamma_t_l = (alpha_t_vec[l] * beta_t_vec[l]) / sum(alpha_t_vec * beta_t_vec)
+    
+    return(gamma_t_l)
+}
+
+xi_calc <- function(t, l, j, m_list, cov_list, init, P, y_i) {
+    alpha_t_vec = NULL
+    beta_t1_vec = NULL
+    b_t1_vec    = NULL
+
+    for(i in 1:3) {
+        alpha_t_vec[i] = forward_proc(t, i, m_list, cov_list, init, P, y_i)
+        beta_t1_vec[i] = backward_proc(t+1, i, m_list, cov_list, init, P, y_i)
+        b_t1_vec[i]    = dmvnorm(y_i[t+1, ], mean = m_list[[i]], sigma = cov_list[[i]])
+    }
+
+    xi_numerator   = alpha_t_vec[l] * P[l,j] * beta_t1_vec[j] * b_t1_vec[j]
+    xi_denominator = 0
+    for(k in 1:3) {
+        for(w in 1:3) {
+            xi_denominator = xi_denominator + alpha_t_vec[k] * P[k,w] * beta_t1_vec[w] * b_t1_vec[w]
+        }
+    }
+
+    xi_t_l = xi_numerator / xi_denominator
+
+    return(xi_t_l)
+}
+
+forward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
 
     # m_list[[l]] = mean for state = l
     # cov_list[[l]] = covariance for state = l
@@ -98,14 +134,14 @@ forward_proc <- function(l, m_list, cov_list, init, P, y_i, t) {
 
         alpha_sum = 0
         for(j in 1:3) {
-            alpha_sum = alpha_sum + P[l,j] * forward_proc(j, m_list, cov_list, init, P, y_i, t-1)
+            alpha_sum = alpha_sum + P[l,j] * forward_proc(t-1, j, m_list, cov_list, init, P, y_i)
         }
 
         return(b_l_t * alpha_sum)
     }
 }
 
-backward_proc <- function(l, m_list, cov_list, init, P, y_i, t) {
+backward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
 
     # m_list[[l]] = mean for state = l
     # cov_list[[l]] = covariance for state = l
@@ -120,7 +156,7 @@ backward_proc <- function(l, m_list, cov_list, init, P, y_i, t) {
         for(j in 1:3) {
             b_j_t = dmvnorm(y_i[t, ], mean = m_list[[j]], sigma = cov_list[[j]])
 
-            beta_sum = beta_sum + P[l,j] * b_j_t * backward_proc(j, m_list, cov_list, init, P, y_i, t+1)
+            beta_sum = beta_sum + P[l,j] * b_j_t * backward_proc(t+1, j, m_list, cov_list, init, P, y_i)
         }
 
         return(beta_sum)
