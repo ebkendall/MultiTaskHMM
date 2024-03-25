@@ -2,80 +2,78 @@ library(mvtnorm, quietly=T)
 library(foreach, quietly=T) 
 library(doParallel, quietly=T)
 
-log_likelihood_fnc <- function(par, par_index, y, id) {
-
-    # Initial state probabilities
-    init_logit = c(1, exp(pars[par_index$logit_pi][1]), 
-                      exp(pars[par_index$logit_pi][2]))
-    init = init_logit / sum(init_logit)
-
-    m_1 = par[par_index$mu_1] # mean for state 1
-    m_2 = par[par_index$mu_2] # mean for state 2
-    m_3 = par[par_index$mu_3] # mean for state 3
-
-    cov_1 = diag(exp(par[par_index$log_sig_1])) # covariance for state 1
-    cov_2 = diag(exp(par[par_index$log_sig_2])) # covariance for state 2
-    cov_3 = diag(exp(par[par_index$log_sig_3])) # covariance for state 3
-
-    # Transition probability matrix
-    q1   = exp(par[par_index$logit_t_p][1])
-    q2   = exp(par[par_index$logit_t_p][2])
-    q3   = exp(par[par_index$logit_t_p][3])
-    q4   = exp(par[par_index$logit_t_p][4])
-    q5   = exp(par[par_index$logit_t_p][5])
-    q6   = exp(par[par_index$logit_t_p][6])
-
-    Q = matrix(c(1,  q1, q2,
-                q3,   1, q4,
-                q5,  q6,  1), ncol=3, byrow=T)
-    P = Q / rowSums(Q)
-
-    # Parallelized computation of the log-likelihood
-    log_total_val = foreach(i=unique(id), .combine='+') %dopar% {
-
-        y_i = y[id == i, , drop = F]  # the matrix of responses for subject i
-
-        d_1 = dmvnorm(y_i[1, ], mean = m_1, sigma = cov_1)
-        d_2 = dmvnorm(y_i[1, ], mean = m_2, sigma = cov_2)
-        d_3 = dmvnorm(y_i[1, ], mean = m_3, sigma = cov_3)
-
-        f_i = init %*% diag(c(d_1, d_2, d_3))
-        log_norm = 0
-        val = 1
-
-        for(t in 2:nrow(y_i)) {
-
-            d_1 = dmvnorm(y_i[t, ], mean = m_1, sigma = cov_1)
-            d_2 = dmvnorm(y_i[t, ], mean = m_2, sigma = cov_2)
-            d_3 = dmvnorm(y_i[t, ], mean = m_3, sigma = cov_3)
-
-            val = f_i %*% P %*% diag(c(d_1, d_2, d_3))
-
-            norm_val = sqrt(sum(val^2))
-            f_i = val / norm_val
-            log_norm = log_norm + log(norm_val)
-        }
-
-        return(log(sum(f_i)) + log_norm)
-    }
-
-    return(log_total_val)
-}
-
 baum_welch_one_environment <- function(par, par_index, y, id) {
 
     eps <- 1e-4
 
-    omega_k    <- 0
+    omega_k    <- omega_k_calc(par, par_index, y, id)
     omega_k_p1 <- 0
 
     while (abs(omega_k_1 - omega_k) > eps) {
-    
+        
     }
 }
 
 omega_k_calc <- function(par, par_index, y, id) {
+    id_unique <- unique(id)
+
+    pi_comp   <- 0
+    A_comp    <- 0
+    like_comp <- 0
+
+    m_list = vector(mode = 'list', length = 3)
+    m_list[[1]] = par[par_index$mu_1]
+    m_list[[2]] = par[par_index$mu_2]
+    m_list[[3]] = par[par_index$mu_3]
     
+    cov_list = vector(mode = 'list', length = 3)
+    cov_list[[1]] = matrix(par[par_index$Sig_1], nrow = 5)
+    cov_list[[2]] = matrix(par[par_index$Sig_2], nrow = 5)
+    cov_list[[3]] = matrix(par[par_index$Sig_3], nrow = 5)
+
+    prob_val = par[par_index$t_p]
+    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
+                 prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
+                 prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
+                 nrow = 3, byrow = T)
+
+    init_val = par[par_index$init_pi]
+    init = c(1 - sum(init_val), init_val[1], init_val[2])
+
+    for(i in 1:length(id_unique)) {
+        y_i = y[id == id_unique[i], ]
+        n_i = nrow(y_i)
+
+        # pi calculation
+        for(l in 1:3) {
+            pi_comp <- pi_comp + gamma_calc(1, l, m_list, cov_list, init, P, y_i) * log(init[l])
+        }
+
+        # transition prob calculation
+        for(t in 2:n_i) {
+            for(l in 1:3) {
+                for(j in 1:3) {
+                    # The diagonal components are functions of the others
+                    if(j != l) {
+                        A_comp = A_comp + xi_calc(t, l, j, m_list, cov_list, init, P, y_i) * log(P[l, j])
+                    }
+                }
+            }
+        }
+
+        # likelihood calculation
+        for(t in 1:n_i) {
+            for(l in 1:3) {
+                like_comp = like_comp + gamma_calc(t, l, m_list, cov_list, init, P, y_i) * 
+                                            dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]], log = T)
+            }
+        }
+    }
+
+    Q_k = pi_comp + A_comp + like_comp
+
+    return(Q_k)
+
 }
 
 gamma_calc <- function(t, l, m_list, cov_list, init, P, y_i) {
@@ -162,4 +160,64 @@ backward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
         return(beta_sum)
 
     }
+}
+
+log_likelihood_fnc <- function(par, par_index, y, id) {
+
+    # Initial state probabilities
+    init_logit = c(1, exp(pars[par_index$logit_pi][1]), 
+                      exp(pars[par_index$logit_pi][2]))
+    init = init_logit / sum(init_logit)
+
+    m_1 = par[par_index$mu_1] # mean for state 1
+    m_2 = par[par_index$mu_2] # mean for state 2
+    m_3 = par[par_index$mu_3] # mean for state 3
+
+    cov_1 = diag(exp(par[par_index$log_sig_1])) # covariance for state 1
+    cov_2 = diag(exp(par[par_index$log_sig_2])) # covariance for state 2
+    cov_3 = diag(exp(par[par_index$log_sig_3])) # covariance for state 3
+
+    # Transition probability matrix
+    q1   = exp(par[par_index$logit_t_p][1])
+    q2   = exp(par[par_index$logit_t_p][2])
+    q3   = exp(par[par_index$logit_t_p][3])
+    q4   = exp(par[par_index$logit_t_p][4])
+    q5   = exp(par[par_index$logit_t_p][5])
+    q6   = exp(par[par_index$logit_t_p][6])
+
+    Q = matrix(c(1,  q1, q2,
+                q3,   1, q4,
+                q5,  q6,  1), ncol=3, byrow=T)
+    P = Q / rowSums(Q)
+
+    # Parallelized computation of the log-likelihood
+    log_total_val = foreach(i=unique(id), .combine='+') %dopar% {
+
+        y_i = y[id == i, , drop = F]  # the matrix of responses for subject i
+
+        d_1 = dmvnorm(y_i[1, ], mean = m_1, sigma = cov_1)
+        d_2 = dmvnorm(y_i[1, ], mean = m_2, sigma = cov_2)
+        d_3 = dmvnorm(y_i[1, ], mean = m_3, sigma = cov_3)
+
+        f_i = init %*% diag(c(d_1, d_2, d_3))
+        log_norm = 0
+        val = 1
+
+        for(t in 2:nrow(y_i)) {
+
+            d_1 = dmvnorm(y_i[t, ], mean = m_1, sigma = cov_1)
+            d_2 = dmvnorm(y_i[t, ], mean = m_2, sigma = cov_2)
+            d_3 = dmvnorm(y_i[t, ], mean = m_3, sigma = cov_3)
+
+            val = f_i %*% P %*% diag(c(d_1, d_2, d_3))
+
+            norm_val = sqrt(sum(val^2))
+            f_i = val / norm_val
+            log_norm = log_norm + log(norm_val)
+        }
+
+        return(log(sum(f_i)) + log_norm)
+    }
+
+    return(log_total_val)
 }
