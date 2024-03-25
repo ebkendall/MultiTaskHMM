@@ -66,18 +66,18 @@ baum_welch_one_environment <- function(par, par_index, y, id) {
 
     eps <- 1e-4
 
-    # while (difference > eps) {
-    # 
-    # }
+    omega_k    <- 0
+    omega_k_p1 <- 0
+
+    while (abs(omega_k_1 - omega_k) > eps) {
+    
+    }
 }
 
+omega_k_calc <- function(par, par_index, y, id) {
+    
+}
 
-# -----------------------------------------------------------------------------
-# THOUGHTS??
-# I think we should be able to precompute alpha and beta for all time points, t,
-# at the start of each EM step that way we aren't computing the recursive alg.
-# for each successive time point 
-# -----------------------------------------------------------------------------
 gamma_calc <- function(t, l, m_list, cov_list, init, P, y_i) {
     alpha_t_vec = NULL
     beta_t_vec  = NULL
