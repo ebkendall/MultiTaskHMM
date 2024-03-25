@@ -7,11 +7,225 @@ baum_welch_one_environment <- function(par, par_index, y, id) {
     eps <- 1e-4
 
     omega_k    <- omega_k_calc(par, par_index, y, id)
-    omega_k_p1 <- 0
+    omega_k_1 <- 0
 
-    while (abs(omega_k_1 - omega_k) > eps) {
+    while (abs(omega_k - omega_k_1) > eps) {
+        
+        omega_k_1 = omega_k
+        
+        # Update pi
+        for(s in 2:3) {
+            par[par_index$init_pi][s-1] <- pi_s_update(s, par, par_index, y, id)
+        }
+        
+        # Update A
+        it_A <- 1
+        for(s in 1:3) {
+            for(m in 1:3) {
+                if(s != m) {
+                    par[par_index$t_p][it_A] <- A_sm_update(s, m, par, par_index, y, id)
+                    it_A = it_A + 1
+                }
+            }
+        }
+        
+        for(s in 1:3) {
+            # Update mu
+            par[par_index[[s + 2]]] = mu_s_update(s, par, par_index, y, id)
+            
+            # Update Sigma  
+            par[par_index[[s + 5]]] = Sigma_s_update(s, par, par_index, y, id)
+        }
+        
+        omega_k    <- omega_k_calc(par, par_index, y, id)
         
     }
+}
+
+mu_s_update <- function(s, par, par_index, y, id) {
+    
+    # Initialize key components -----------------------------------------------
+    id_unique <- unique(id)
+    
+    m_list = vector(mode = 'list', length = 3)
+    m_list[[1]] = par[par_index$mu_1]
+    m_list[[2]] = par[par_index$mu_2]
+    m_list[[3]] = par[par_index$mu_3]
+    
+    cov_list = vector(mode = 'list', length = 3)
+    cov_list[[1]] = matrix(par[par_index$Sig_1], nrow = 5)
+    cov_list[[2]] = matrix(par[par_index$Sig_2], nrow = 5)
+    cov_list[[3]] = matrix(par[par_index$Sig_3], nrow = 5)
+    
+    prob_val = par[par_index$t_p]
+    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
+                 prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
+                 prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
+               nrow = 3, byrow = T)
+    
+    init_val = par[par_index$init_pi]
+    init = c(1 - sum(init_val), init_val[1], init_val[2])
+    # -------------------------------------------------------------------------
+    
+    mu_hat_num <- rep(0, ncol(y))
+    mu_hat_den <- 0
+    
+    for(i in 1:length(id_unique)) {
+        y_i = y[id == id_unique[i], ]
+        n_i = nrow(y_i)
+        
+        for(t in 1:n_i) {
+            gamma_s_i_t <- gamma_calc(t, s, m_list, cov_list, init, P, y_i)
+            
+            mu_hat_num <- mu_hat_num + gamma_s_i_t * y_i[t, ]
+            mu_hat_den <- mu_hat_den + gamma_s_i_t
+        }
+    }
+    
+    mu_hat <- mu_hat_num / mu_hat_den
+    
+    return(mu_hat)
+}
+
+Sigma_s_update <- function(s, par, par_index, y, id) {
+    
+    # Initialize key components -----------------------------------------------
+    id_unique <- unique(id)
+    
+    m_list = vector(mode = 'list', length = 3)
+    m_list[[1]] = par[par_index$mu_1]
+    m_list[[2]] = par[par_index$mu_2]
+    m_list[[3]] = par[par_index$mu_3]
+    
+    cov_list = vector(mode = 'list', length = 3)
+    cov_list[[1]] = matrix(par[par_index$Sig_1], nrow = 5)
+    cov_list[[2]] = matrix(par[par_index$Sig_2], nrow = 5)
+    cov_list[[3]] = matrix(par[par_index$Sig_3], nrow = 5)
+    
+    prob_val = par[par_index$t_p]
+    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
+                 prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
+                 prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
+               nrow = 3, byrow = T)
+    
+    init_val = par[par_index$init_pi]
+    init = c(1 - sum(init_val), init_val[1], init_val[2])
+    # -------------------------------------------------------------------------
+    
+    sigma_hat_num <- matrix(0, nrow = 5, ncol = 5)
+    sigma_hat_den <- 0
+    
+    for(i in 1:length(id_unique)) {
+        y_i = y[id == id_unique[i], ]
+        n_i = nrow(y_i)
+        
+        for(t in 1:n_i) {
+            gamma_s_i_t <- gamma_calc(t, s, m_list, cov_list, init, P, y_i)
+            
+            y_mu_diff <- matrix(c(y_i[t, ] - m_list[[s]]), ncol = 1)
+            outer_prod <- y_mu_diff %*% t(y_mu_diff)
+            
+            sigma_hat_num <- sigma_hat_num + gamma_s_i_t * outer_prod
+            sigma_hat_den <- sigma_hat_den + gamma_s_i_t
+        }
+    }
+    
+    Sigma_hat <- sigma_hat_num / sigma_hat_den
+    
+    return(Sigma_hat)
+}
+
+pi_s_update <- function(s, par, par_index, y, id) {
+    
+    # Initialize key components -----------------------------------------------
+    id_unique <- unique(id)
+    
+    m_list = vector(mode = 'list', length = 3)
+    m_list[[1]] = par[par_index$mu_1]
+    m_list[[2]] = par[par_index$mu_2]
+    m_list[[3]] = par[par_index$mu_3]
+    
+    cov_list = vector(mode = 'list', length = 3)
+    cov_list[[1]] = matrix(par[par_index$Sig_1], nrow = 5)
+    cov_list[[2]] = matrix(par[par_index$Sig_2], nrow = 5)
+    cov_list[[3]] = matrix(par[par_index$Sig_3], nrow = 5)
+    
+    prob_val = par[par_index$t_p]
+    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
+                 prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
+                 prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
+               nrow = 3, byrow = T)
+    
+    init_val = par[par_index$init_pi]
+    init = c(1 - sum(init_val), init_val[1], init_val[2])
+    # -------------------------------------------------------------------------
+    
+    pi_hat_num <- 0
+    pi_hat_den <- 0
+    
+    for(i in 1:length(id_unique)) {
+        y_i = y[id == id_unique[i], ]
+        
+        gamma_i_sum <- rep(0, 3)
+        for(l in 1:3) {
+            gamma_i_sum[l] <- gamma_calc(1, l, m_list, cov_list, init, P, y_i)
+        }
+        
+        pi_hat_num <- pi_hat_num + gamma_i_sum[s]
+        pi_hat_den <- pi_hat_den + sum(gamma_i_sum)
+    }
+    
+    pi_hat <- pi_hat_num / pi_hat_den
+    
+    return(pi_hat)
+}
+
+A_sm_update <- function(s, m, par, par_index, y, id) {
+    
+    # Initialize key components -----------------------------------------------
+    id_unique <- unique(id)
+    
+    m_list = vector(mode = 'list', length = 3)
+    m_list[[1]] = par[par_index$mu_1]
+    m_list[[2]] = par[par_index$mu_2]
+    m_list[[3]] = par[par_index$mu_3]
+    
+    cov_list = vector(mode = 'list', length = 3)
+    cov_list[[1]] = matrix(par[par_index$Sig_1], nrow = 5)
+    cov_list[[2]] = matrix(par[par_index$Sig_2], nrow = 5)
+    cov_list[[3]] = matrix(par[par_index$Sig_3], nrow = 5)
+    
+    prob_val = par[par_index$t_p]
+    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
+                 prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
+                 prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
+               nrow = 3, byrow = T)
+    
+    init_val = par[par_index$init_pi]
+    init = c(1 - sum(init_val), init_val[1], init_val[2])
+    # -------------------------------------------------------------------------
+    
+    a_sm_num <- 0
+    a_sm_den <- 0
+    
+    for(i in 1:length(id_unique)) {
+        y_i = y[id == id_unique[i], ]
+        n_i = nrow(y_i)
+        
+        for(t in 1:n_i) {
+            if(t != 1) {
+                a_sm_num <- a_sm_num + xi_calc(t, s, m, m_list, cov_list, init, P, y_i)
+            }
+            
+            if(t != n_i) {
+                a_sm_den <- a_sm_den + gamma_calc(t, s, m_list, cov_list, init, P, y_i)
+            }
+        }
+    }
+    
+    A_sm_hat <- a_sm_num / a_sm_den
+    
+    return(A_sm_hat)
 }
 
 omega_k_calc <- function(par, par_index, y, id) {
@@ -41,20 +255,24 @@ omega_k_calc <- function(par, par_index, y, id) {
     init = c(1 - sum(init_val), init_val[1], init_val[2])
 
     for(i in 1:length(id_unique)) {
+        print(i)
         y_i = y[id == id_unique[i], ]
         n_i = nrow(y_i)
 
         # pi calculation
+        print("pi calculator")
         for(l in 1:3) {
             pi_comp <- pi_comp + gamma_calc(1, l, m_list, cov_list, init, P, y_i) * log(init[l])
         }
 
         # transition prob calculation
+        print("transition prob calculator")
         for(t in 2:n_i) {
             for(l in 1:3) {
                 for(j in 1:3) {
                     # The diagonal components are functions of the others
                     if(j != l) {
+                        print(paste0(l, ", ", j))
                         A_comp = A_comp + xi_calc(t, l, j, m_list, cov_list, init, P, y_i) * log(P[l, j])
                     }
                 }
@@ -62,8 +280,10 @@ omega_k_calc <- function(par, par_index, y, id) {
         }
 
         # likelihood calculation
+        print("likelihood component")
         for(t in 1:n_i) {
             for(l in 1:3) {
+                print(paste0('t: ', t, ", l: ", l))
                 like_comp = like_comp + gamma_calc(t, l, m_list, cov_list, init, P, y_i) * 
                                             dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]], log = T)
             }
