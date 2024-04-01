@@ -6,7 +6,10 @@ baum_welch_one_environment <- function(par, par_index, y, id) {
 
     eps <- 1e-4
 
+    start_t = Sys.time()
     omega_k    <- omega_k_calc(par, par_index, y, id)
+    end_t = Sys.time(); print(end_t - start_t)
+    
     omega_k_1 <- 0
 
     while (abs(omega_k - omega_k_1) > eps) {
@@ -255,37 +258,36 @@ omega_k_calc <- function(par, par_index, y, id) {
     init = c(1 - sum(init_val), init_val[1], init_val[2])
 
     for(i in 1:length(id_unique)) {
-        print(i)
         y_i = y[id == id_unique[i], ]
         n_i = nrow(y_i)
 
+        # Calculate forward proc. & backward proc.
+        alpha_mat = forward_proc_it(m_list, cov_list, init, P, y_i)
+        beta_mat  = backward_proc_it(m_list, cov_list, init, P, y_i)
+        
+        # Calculate gamma for all time points
+        gamma_mat = gamma_calc(alpha_mat, beta_mat, m_list, cov_list, init, P, y_i)
+        
         # pi calculation
-        print("pi calculator")
-        for(l in 1:3) {
-            pi_comp <- pi_comp + gamma_calc(1, l, m_list, cov_list, init, P, y_i) * log(init[l])
-        }
+        pi_comp = sum(gamma_mat[1,] * log(init))
 
         # transition prob calculation
-        print("transition prob calculator")
-        for(t in 2:n_i) {
-            for(l in 1:3) {
-                for(j in 1:3) {
-                    # The diagonal components are functions of the others
-                    if(j != l) {
-                        print(paste0(l, ", ", j))
-                        A_comp = A_comp + xi_calc(t, l, j, m_list, cov_list, init, P, y_i) * log(P[l, j])
-                    }
+        for(l in 1:3) {
+            for(j in 1:3) {
+                # The diagonal components are functions of the others
+                if(j != l) {
+                    xi_time = xi_calc(l, j, alpha_mat, beta_mat, m_list, cov_list, init, P, y_i)
+                    A_comp = A_comp + sum(xi_time * log(P[l, j]))
                 }
             }
         }
 
         # likelihood calculation
-        print("likelihood component")
         for(t in 1:n_i) {
             for(l in 1:3) {
-                print(paste0('t: ', t, ", l: ", l))
-                like_comp = like_comp + gamma_calc(t, l, m_list, cov_list, init, P, y_i) * 
-                                            dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]], log = T)
+                like_comp = like_comp + gamma_mat[t, l] * dmvnorm(y_i[t, ], 
+                                                                  mean = m_list[[l]], 
+                                                                  sigma = cov_list[[l]], log = T)
             }
         }
     }
@@ -296,42 +298,63 @@ omega_k_calc <- function(par, par_index, y, id) {
 
 }
 
-gamma_calc <- function(t, l, m_list, cov_list, init, P, y_i) {
-    alpha_t_vec = NULL
-    beta_t_vec  = NULL
-
-    for(i in 1:3) {
-        alpha_t_vec[i] = forward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
-        beta_t_vec[i]  = backward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
-    }
-
-    gamma_t_l = (alpha_t_vec[l] * beta_t_vec[l]) / sum(alpha_t_vec * beta_t_vec)
+gamma_calc <- function(alpha_mat, beta_mat, m_list, cov_list, init, P, y_i) {
     
-    return(gamma_t_l)
+    gamma_mat = matrix(nrow = nrow(y_i), ncol = length(m_list))
+    
+    alpha_beta_prod = alpha_mat * beta_mat
+    alpha_beta_sum = rowSums(alpha_beta_prod)
+    
+    for(l in 1:ncol(gamma_mat)) {
+        alpha_l = alpha_mat[,l]
+        beta_l  = beta_mat[,l]
+        
+        gamma_mat[,l] = (alpha_l * beta_l) / alpha_beta_sum
+    }
+    
+    return(gamma_mat)
 }
 
-xi_calc <- function(t, l, j, m_list, cov_list, init, P, y_i) {
-    alpha_t_vec = NULL
-    beta_t1_vec = NULL
-    b_t1_vec    = NULL
-
-    for(i in 1:3) {
-        alpha_t_vec[i] = forward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
-        beta_t1_vec[i] = backward_proc_rec(t+1, i, m_list, cov_list, init, P, y_i)
-        b_t1_vec[i]    = dmvnorm(y_i[t+1, ], mean = m_list[[i]], sigma = cov_list[[i]])
-    }
-
-    xi_numerator   = alpha_t_vec[l] * P[l,j] * beta_t1_vec[j] * b_t1_vec[j]
-    xi_denominator = 0
-    for(k in 1:3) {
-        for(w in 1:3) {
-            xi_denominator = xi_denominator + alpha_t_vec[k] * P[k,w] * beta_t1_vec[w] * b_t1_vec[w]
+xi_calc <- function(l, j, alpha_mat, beta_mat, m_list, cov_list, init, P, y_i) {
+    
+    xi_vec = rep(0, nrow(y_i) - 1)
+    
+    for(t in 2:nrow(y_i)) {
+        
+        b_t = rep(0, length(m_list))
+        for(i in 1:length(m_list)) {
+            b_t[i] = dmvnorm(y_i[t, ], mean = m_list[[i]], sigma = cov_list[[i]])   
         }
+        
+        xi_numerator   = alpha_mat[t-1,l] * P[l,j] * beta_mat[t,j] * b_t[j]
+        xi_denominator = 0
+        
+        for(k in 1:3) {
+            for(w in 1:3) {
+                xi_denominator = xi_denominator + alpha_mat[t-1, k] * P[k,w] * beta_mat[t,w] * b_t[w]
+            }
+        }
+
+        xi_vec[t-1] = xi_numerator / xi_denominator
     }
+    
+    # for(i in 1:3) {
+    #     alpha_t_vec[i] = forward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
+    #     beta_t1_vec[i] = backward_proc_rec(t+1, i, m_list, cov_list, init, P, y_i)
+    #     b_t1_vec[i]    = dmvnorm(y_i[t+1, ], mean = m_list[[i]], sigma = cov_list[[i]])
+    # }
+    # 
+    # xi_numerator   = alpha_t_vec[l] * P[l,j] * beta_t1_vec[j] * b_t1_vec[j]
+    # xi_denominator = 0
+    # for(k in 1:3) {
+    #     for(w in 1:3) {
+    #         xi_denominator = xi_denominator + alpha_t_vec[k] * P[k,w] * beta_t1_vec[w] * b_t1_vec[w]
+    #     }
+    # }
+    # 
+    # xi_t_l = xi_numerator / xi_denominator
 
-    xi_t_l = xi_numerator / xi_denominator
-
-    return(xi_t_l)
+    return(xi_vec)
 }
 
 forward_proc_rec <- function(t, l, m_list, cov_list, init, P, y_i) {
