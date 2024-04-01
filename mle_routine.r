@@ -301,8 +301,8 @@ gamma_calc <- function(t, l, m_list, cov_list, init, P, y_i) {
     beta_t_vec  = NULL
 
     for(i in 1:3) {
-        alpha_t_vec[i] = forward_proc(t, i, m_list, cov_list, init, P, y_i)
-        beta_t_vec[i]  = backward_proc(t, i, m_list, cov_list, init, P, y_i)
+        alpha_t_vec[i] = forward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
+        beta_t_vec[i]  = backward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
     }
 
     gamma_t_l = (alpha_t_vec[l] * beta_t_vec[l]) / sum(alpha_t_vec * beta_t_vec)
@@ -316,8 +316,8 @@ xi_calc <- function(t, l, j, m_list, cov_list, init, P, y_i) {
     b_t1_vec    = NULL
 
     for(i in 1:3) {
-        alpha_t_vec[i] = forward_proc(t, i, m_list, cov_list, init, P, y_i)
-        beta_t1_vec[i] = backward_proc(t+1, i, m_list, cov_list, init, P, y_i)
+        alpha_t_vec[i] = forward_proc_rec(t, i, m_list, cov_list, init, P, y_i)
+        beta_t1_vec[i] = backward_proc_rec(t+1, i, m_list, cov_list, init, P, y_i)
         b_t1_vec[i]    = dmvnorm(y_i[t+1, ], mean = m_list[[i]], sigma = cov_list[[i]])
     }
 
@@ -334,8 +334,10 @@ xi_calc <- function(t, l, j, m_list, cov_list, init, P, y_i) {
     return(xi_t_l)
 }
 
-forward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
+forward_proc_rec <- function(t, l, m_list, cov_list, init, P, y_i) {
 
+    # *** SUPER COMPUTATIONALLY EXPENSIVE *** #
+    
     # m_list[[l]] = mean for state = l
     # cov_list[[l]] = covariance for state = l
 
@@ -352,14 +354,16 @@ forward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
 
         alpha_sum = 0
         for(j in 1:3) {
-            alpha_sum = alpha_sum + P[l,j] * forward_proc(t-1, j, m_list, cov_list, init, P, y_i)
+            alpha_sum = alpha_sum + P[l,j] * forward_proc_rec(t-1, j, m_list, cov_list, init, P, y_i)
         }
 
         return(b_l_t * alpha_sum)
     }
 }
 
-backward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
+backward_proc_rec <- function(t, l, m_list, cov_list, init, P, y_i) {
+    
+    # *** SUPER COMPUTATIONALLY EXPENSIVE *** #
 
     # m_list[[l]] = mean for state = l
     # cov_list[[l]] = covariance for state = l
@@ -372,14 +376,65 @@ backward_proc <- function(t, l, m_list, cov_list, init, P, y_i) {
         # Recursive step
         beta_sum = 0
         for(j in 1:3) {
-            b_j_t = dmvnorm(y_i[t, ], mean = m_list[[j]], sigma = cov_list[[j]])
+            b_j_t = dmvnorm(y_i[t+1, ], mean = m_list[[j]], sigma = cov_list[[j]])
 
-            beta_sum = beta_sum + P[l,j] * b_j_t * backward_proc(t+1, j, m_list, cov_list, init, P, y_i)
+            beta_sum = beta_sum + P[l,j] * b_j_t * backward_proc_rec(t+1, j, m_list, cov_list, init, P, y_i)
         }
 
         return(beta_sum)
 
     }
+}
+
+forward_proc_it <- function(m_list, cov_list, init, P, y_i) {
+    
+    # m_list[[l]] = mean for state = l
+    # cov_list[[l]] = covariance for state = l
+    
+    alpha_mat = matrix(nrow = nrow(y_i), ncol = length(m_list))
+    
+    for(t in 1:nrow(y_i)) {
+        if(t == 1) {
+            for(l in 1:length(m_list)) {
+                alpha_mat[t,l] = init[l] * dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]])
+            }
+        } else {
+            for(l in 1:length(m_list)) {
+                a_ji = c(P[,l])
+                alpha_t_1 = alpha_mat[t-1, ]
+                
+                alpha_mat[t,l] = dmvnorm(y_i[t, ], mean = m_list[[l]], sigma = cov_list[[l]]) * sum(a_ji * alpha_t_1)
+            }
+        }
+    }
+    return(alpha_mat)
+}
+
+backward_proc_it <- function(m_list, cov_list, init, P, y_i) {
+    
+    # m_list[[l]] = mean for state = l
+    # cov_list[[l]] = covariance for state = l
+    
+    beta_mat = matrix(nrow = nrow(y_i), ncol = length(m_list))
+    
+    for(t in nrow(y_i):1) {
+        if(t == nrow(y_i)) {
+            beta_mat[t, ] = rep(1, ncol(beta_mat))
+        } else {
+            for(l in 1:length(m_list)) {
+                b_j = rep(0,length(m_list))
+                for(j in 1:length(m_list)) {
+                    beta_t_1 = beta_mat[t+1,j]
+                    a_ij = c(P[l,j])
+                    b_j[j] = beta_t_1 * a_ij * dmvnorm(y_i[t+1, ], mean = m_list[[j]], sigma = cov_list[[j]])
+                }
+                
+                beta_mat[t,l] = sum(b_j)
+            }
+        }
+    }
+    
+    return(beta_mat)
 }
 
 log_likelihood_fnc <- function(par, par_index, y, id) {
