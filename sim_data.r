@@ -16,8 +16,8 @@ N = 100
 S = 3
 
 # True parameter values
-true_par = c(-2, -2, -2, -2, -2, -2, # logit transition probs
-             -2, -2,                 # logit initial probabilities
+true_par = c(-4, -2, -4, -2, -4, -2, # logit transition probs
+              0, 0,                 # logit initial probabilities
               0, 0, 0, 0, 0,         # mu_1
               2, 2, 2, 2, 2,         # mu_2
               4, 4, 4, 4, 4,         # mu_3
@@ -107,4 +107,20 @@ for(seed in 1:n_sim) {
     print(table(sim_data[,'state']))
     print(table(sim_data[,'state'])/dim(sim_data)[1])
     cat('\n')
+
+    count_transitions = matrix(0, nrow=3, ncol=3)
+    total_trans = 0
+    for(i in unique(sim_data[,"id"])){
+        
+        b_i_mle = as.numeric(c(sim_data[sim_data[,"id"] == i, 'state']))
+        
+        for(t in 1:(length(b_i_mle) - 1)) {
+            count_transitions[b_i_mle[t], b_i_mle[t+1]] = 
+                count_transitions[b_i_mle[t], b_i_mle[t+1]] + 1
+            total_trans = total_trans + 1
+        }
+    }
+    
+    print("Transition distribution")
+    print(count_transitions)
 }

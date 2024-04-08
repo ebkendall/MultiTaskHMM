@@ -4,7 +4,7 @@ library(doParallel, quietly=T)
 
 baum_welch_one_environment <- function(par, par_index, y, id) {
 
-    eps <- 1e-6
+    eps <- 1e-4
 
     start_t = Sys.time()
     omega_k_list <- omega_k_calc(par, par_index, y, id)
