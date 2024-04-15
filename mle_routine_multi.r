@@ -33,11 +33,12 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     it_count = 0
     
     while(loop_cont) {
+        omega_k_1 = omega_k
+
         for(e in 1:n_env) {
             for(j in 1:length(mpi)) {
                 it_count = it_count + 1
                 
-                omega_k_1 = omega_k
                 ind_j = mpi[[j]]
                 
                 if(sum(ind_j %in% par_index$t_p) == length(ind_j)) {
@@ -93,10 +94,14 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 }
                 
                 print(paste0("it: ", it_count, ", j: ", j))
-                print(omega_k)
             }   
         }
 
+        print("prev")
+        print(omega_k_1)
+        print("curr")
+        print(omega_k)
+        
         if(abs(sum(omega_k) - sum(omega_k_1)) < eps) {
             loop_cont = F
             break
