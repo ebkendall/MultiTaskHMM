@@ -46,33 +46,38 @@ start_t_big = Sys.time()
 par_est <- baum_welch_multi_environment(init_val_list, par_index, y, id, n_env)
 end_t_big = Sys.time(); print(paste0("Total time: ", end_t_big - start_t_big))
 
-print("Estimated P")
-prob_val = par_est[par_index$t_p]
-P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
-             prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
-             prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
-           nrow = 3, byrow = T)
-print(P)
-
-print("Estimated initial prob.")
-init_val = par_est[par_index$init_pi]
-init = c(1 - sum(init_val), init_val[1], init_val[2])
-print(init)
-
-print("Estimated mu_1")
-print(par_est[par_index$mu_1])
-print("Estimated mu_2")
-print(par_est[par_index$mu_2])
-print("Estimated mu_3")
-print(par_est[par_index$mu_3])
-
-print("Estimated Sigma 1")
-print(matrix(par_est[par_index$Sig_1], nrow = 5))
-print("Estimated Sigma 2")
-print(matrix(par_est[par_index$Sig_2], nrow = 5))
-print("Estimated Sigma 3")
-print(matrix(par_est[par_index$Sig_3], nrow = 5))
-
 model_out = list(par_est, end_t_big - start_t_big, par_index)
 
 save(model_out, file = paste0('Model_out/model_out_multi_', ind, '.rda'))
+
+for(e in 1:n_env) {
+    print(paste0("Environment ", e))
+    par_est_e = par_est[[e]]
+
+    print("Estimated P")
+    prob_val = par_est_e[par_index$t_p]
+    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
+                prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
+                prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
+            nrow = 3, byrow = T)
+    print(P)
+
+    print("Estimated initial prob.")
+    init_val = par_est_e[par_index$init_pi]
+    init = c(1 - sum(init_val), init_val[1], init_val[2])
+    print(init)
+
+    print("Estimated mu_1")
+    print(par_est_e[par_index$mu_1])
+    print("Estimated mu_2")
+    print(par_est_e[par_index$mu_2])
+    print("Estimated mu_3")
+    print(par_est_e[par_index$mu_3])
+
+    print("Estimated Sigma 1")
+    print(matrix(par_est_e[par_index$Sig_1], nrow = 5))
+    print("Estimated Sigma 2")
+    print(matrix(par_est_e[par_index$Sig_2], nrow = 5))
+    print("Estimated Sigma 3")
+    print(matrix(par_est_e[par_index$Sig_3], nrow = 5))
+}

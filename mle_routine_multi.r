@@ -94,13 +94,12 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 
                 print(paste0("it: ", it_count, ", j: ", j))
                 print(omega_k)
-                
-                if(abs(sum(omega_k) - sum(omega_k_1)) < eps) {
-                    loop_cont = F
-                    break
-                }
-                
             }   
+        }
+
+        if(abs(sum(omega_k) - sum(omega_k_1)) < eps) {
+            loop_cont = F
+            break
         }
     }
     
