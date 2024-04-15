@@ -75,4 +75,4 @@ print(matrix(par_est[par_index$Sig_3], nrow = 5))
 
 model_out = list(par_est, end_t_big - start_t_big, par_index)
 
-save(model_out, file = paste0('Model_out/model_out_multi_', ind, "_e", e, '.rda'))
+save(model_out, file = paste0('Model_out/model_out_multi_', ind, '.rda'))
