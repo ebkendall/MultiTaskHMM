@@ -55,6 +55,7 @@ true_par_e3 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
 
 # *************** All environments ***************
 true_par = list(true_par_e1, true_par_e2, true_par_e3)
+save(true_par, file = 'Data/true_par.rda')
 
 
 # Indexing of the parameter vector
