@@ -101,7 +101,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
         print(omega_k_1)
         print("curr")
         print(omega_k)
-        
+
         if(abs(sum(omega_k) - sum(omega_k_1)) < eps) {
             loop_cont = F
             break
@@ -350,8 +350,8 @@ forward_proc_rec <- function(t, l, m_list, cov_list, init, P, y_i) {
     
     # *** SUPER COMPUTATIONALLY EXPENSIVE *** #
     
-    # m_list[[l]] = mean for state = l
-    # cov_list[[l]] = covariance for state = l
+    # m_list[[l]] = mean for state l
+    # cov_list[[l]] = covariance for state l
     
     if(t == 1) {
         # Basecase
@@ -379,8 +379,8 @@ backward_proc_rec <- function(t, l, m_list, cov_list, init, P, y_i) {
     
     # *** SUPER COMPUTATIONALLY EXPENSIVE *** #
     
-    # m_list[[l]] = mean for state = l
-    # cov_list[[l]] = covariance for state = l
+    # m_list[[l]] = mean for state l
+    # cov_list[[l]] = covariance for state l
     
     if(t == nrow(y_i)) {
         # Basecase
@@ -405,8 +405,8 @@ backward_proc_rec <- function(t, l, m_list, cov_list, init, P, y_i) {
 
 forward_proc_it <- function(m_list, cov_list, init, P, y_i) {
     
-    # m_list[[l]] = mean for state = l
-    # cov_list[[l]] = covariance for state = l
+    # m_list[[l]] = mean for state l
+    # cov_list[[l]] = covariance for state l
     
     alpha_mat = matrix(nrow = nrow(y_i), ncol = length(m_list))
     
@@ -431,8 +431,8 @@ forward_proc_it <- function(m_list, cov_list, init, P, y_i) {
 
 backward_proc_it <- function(m_list, cov_list, init, P, y_i) {
     
-    # m_list[[l]] = mean for state = l
-    # cov_list[[l]] = covariance for state = l
+    # m_list[[l]] = mean for state l
+    # cov_list[[l]] = covariance for state l
     
     beta_mat = matrix(nrow = nrow(y_i), ncol = length(m_list))
     
