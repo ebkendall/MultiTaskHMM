@@ -45,8 +45,9 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                     # transition prob. (shared across environment)
                     par[[1]][ind_j] = par[[2]][ind_j] = par[[3]][ind_j] = A_sm_update(ind_j, big_gamma, big_xi, id, n_env)
                 } else if(sum(ind_j %in% par_index$init_pi) == length(ind_j)) {
-                    # initial state prob. (shared across environment)
-                    par[[1]][ind_j] = par[[2]][ind_j] = par[[3]][ind_j] = pi_s_update(ind_j - length(par_index$t_p) + 1, big_gamma, id, n_env)
+                    # initial state prob.
+                    par[[e]][ind_j] = pi_s_update(ind_j - length(par_index$t_p) + 1, 
+                                                  big_gamma[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$mu_1) == length(ind_j)) {
                     # mu_1
                     par[[e]][ind_j] = mu_s_update(1, big_gamma[[e]], 
@@ -79,9 +80,8 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 big_gamma[[e]] = omega_k_list[[e]][[2]]
                 big_xi[[e]]    = omega_k_list[[e]][[3]]
                 
-                # Omega needs to be updated for all env. if P or pi are updated
-                if((sum(ind_j %in% par_index$t_p) == length(ind_j)) | 
-                   (sum(ind_j %in% par_index$init_pi) == length(ind_j))) {
+                # Omega needs to be updated for all env. if P is updated
+                if(sum(ind_j %in% par_index$t_p) == length(ind_j)) {
                     for(ee in 1:n_env) {
                         if(ee != e) {
                             omega_k_list[[ee]] <- omega_k_calc(par[[ee]], par_index, y[[ee]], id[[ee]]) 
@@ -176,16 +176,14 @@ pi_s_update <- function(s, big_gamma, id, n_env) {
     pi_hat_num <- 0
     pi_hat_den <- 0
     
-    for(ee in 1:n_env) {
-        id_unique <- unique(id[[ee]])
+    id_unique <- unique(id)
+    
+    for(i in 1:length(id_unique)) {
+        gamma_i = big_gamma[[i]]
         
-        for(i in 1:length(id_unique)) {
-            gamma_i = big_gamma[[ee]][[i]]
-            
-            pi_hat_num <- pi_hat_num + gamma_i[1,s]
-            pi_hat_den <- pi_hat_den + sum(gamma_i[1,])
-        }   
-    }
+        pi_hat_num <- pi_hat_num + gamma_i[1,s]
+        pi_hat_den <- pi_hat_den + sum(gamma_i[1,])
+    } 
     
     pi_hat <- pi_hat_num / pi_hat_den
     
