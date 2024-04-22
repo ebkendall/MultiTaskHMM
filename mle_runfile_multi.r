@@ -1,9 +1,15 @@
+# # C++ packages and requirements
+# library(Rcpp, quietly=T)
+# library(RcppArmadillo, quietly = T)
+# library(RcppDist, quietly = T)
+# sourceCpp("mle_routine_c.cpp")
+
 source("mle_routine_multi.r")
 
 args = commandArgs(TRUE)
 ind = as.numeric(args[1])
 
-n_env = 3
+n_env = 1
 
 set.seed(ind)
 print(ind)

@@ -43,7 +43,10 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 
                 if(sum(ind_j %in% par_index$t_p) == length(ind_j)) {
                     # transition prob. (shared across environment)
-                    par[[1]][ind_j] = par[[2]][ind_j] = par[[3]][ind_j] = A_sm_update(ind_j, big_gamma, big_xi, id, n_env)
+                    tp_temp = A_sm_update(ind_j, big_gamma, big_xi, id, n_env)
+                    for(eee in 1:n_env) {
+                        par[[eee]][ind_j] = tp_temp
+                    }
                 } else if(sum(ind_j %in% par_index$init_pi) == length(ind_j)) {
                     # initial state prob.
                     par[[e]][ind_j] = pi_s_update(ind_j - length(par_index$t_p) + 1, 
@@ -169,8 +172,8 @@ Sigma_s_update <- function(s, big_gamma, par, par_index, y, id) {
     return(Sigma_hat)
 }
 
-# Pool the data
-pi_s_update <- function(s, big_gamma, id, n_env) {
+# Learn separately
+pi_s_update <- function(s, big_gamma, id) {
     
     
     pi_hat_num <- 0
