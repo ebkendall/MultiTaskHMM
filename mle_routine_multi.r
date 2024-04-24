@@ -1,6 +1,8 @@
-library(mvtnorm, quietly=T) 
-library(foreach, quietly=T) 
-library(doParallel, quietly=T)
+# C++ packages and requirements
+library(Rcpp, quietly=T)
+library(RcppArmadillo, quietly = T)
+library(RcppDist, quietly = T)
+sourceCpp("mle_routine_c.cpp")
 
 baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     
@@ -9,7 +11,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     start_t = Sys.time()
     omega_k_list <- list()
     for(e in 1:n_env) {
-        omega_k_list[[e]] <- omega_k_calc(par[[e]], par_index, y[[e]], id[[e]])   
+        omega_k_list[[e]] <- omega_k_calc_c(par[[e]], par_index, y[[e]], id[[e]])   
     }
     end_t = Sys.time(); print(end_t - start_t)
     
@@ -43,41 +45,41 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 
                 if(sum(ind_j %in% par_index$t_p) == length(ind_j)) {
                     # transition prob. (shared across environment)
-                    tp_temp = A_sm_update(ind_j, big_gamma, big_xi, id, n_env)
+                    tp_temp = A_sm_update_c(ind_j, big_gamma, big_xi, id, n_env)
                     for(eee in 1:n_env) {
                         par[[eee]][ind_j] = tp_temp
                     }
                 } else if(sum(ind_j %in% par_index$init_pi) == length(ind_j)) {
                     # initial state prob.
-                    par[[e]][ind_j] = pi_s_update(ind_j - length(par_index$t_p) + 1, 
+                    par[[e]][ind_j] = pi_s_update_c(ind_j - length(par_index$t_p) + 1, 
                                                   big_gamma[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$mu_1) == length(ind_j)) {
                     # mu_1
-                    par[[e]][ind_j] = mu_s_update(1, big_gamma[[e]], 
+                    par[[e]][ind_j] = mu_s_update_c(1, big_gamma[[e]], 
                                                   y[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$mu_2) == length(ind_j)) {
                     # mu_2
-                    par[[e]][ind_j] = mu_s_update(2, big_gamma[[e]], 
+                    par[[e]][ind_j] = mu_s_update_c(2, big_gamma[[e]], 
                                                   y[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$mu_3) == length(ind_j)) {
                     # mu_3
-                    par[[e]][ind_j] = mu_s_update(3, big_gamma[[e]], 
+                    par[[e]][ind_j] = mu_s_update_c(3, big_gamma[[e]], 
                                                   y[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$Sig_1) == length(ind_j)) {
                     # Sig_1
-                    par[[e]][ind_j] = Sigma_s_update(1, big_gamma[[e]], par[[e]], 
+                    par[[e]][ind_j] = Sigma_s_update_c(1, big_gamma[[e]], par[[e]], 
                                                      par_index, y[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$Sig_2) == length(ind_j)) {
                     # Sig_2
-                    par[[e]][ind_j] = Sigma_s_update(2, big_gamma[[e]], par[[e]], 
+                    par[[e]][ind_j] = Sigma_s_update_c(2, big_gamma[[e]], par[[e]], 
                                                      par_index, y[[e]], id[[e]])
                 } else {
                     # Sig_3
-                    par[[e]][ind_j] = Sigma_s_update(3, big_gamma[[e]], par[[e]], 
+                    par[[e]][ind_j] = Sigma_s_update_c(3, big_gamma[[e]], par[[e]], 
                                                      par_index, y[[e]], id[[e]])
                 }
                 
-                omega_k_list[[e]] <- omega_k_calc(par[[e]], par_index, y[[e]], id[[e]])
+                omega_k_list[[e]] <- omega_k_calc_c(par[[e]], par_index, y[[e]], id[[e]])
                 
                 omega_k[e]     = omega_k_list[[e]][[1]]
                 big_gamma[[e]] = omega_k_list[[e]][[2]]
@@ -87,7 +89,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 if(sum(ind_j %in% par_index$t_p) == length(ind_j)) {
                     for(ee in 1:n_env) {
                         if(ee != e) {
-                            omega_k_list[[ee]] <- omega_k_calc(par[[ee]], par_index, y[[ee]], id[[ee]]) 
+                            omega_k_list[[ee]] <- omega_k_calc_c(par[[ee]], par_index, y[[ee]], id[[ee]]) 
                             
                             omega_k[ee] = omega_k_list[[ee]][[1]]
                             big_gamma[[ee]] = omega_k_list[[ee]][[2]]
@@ -95,15 +97,11 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                         }
                     }
                 }
-                
-                print(paste0("it: ", it_count, ", j: ", j))
             }   
         }
 
-        print("prev")
-        print(omega_k_1)
-        print("curr")
-        print(omega_k)
+        print(paste0(it_count, ". prev: ", round(omega_k_1, digits = 4), 
+                     ",    curr: ", round(omega_k, digits = 4)))
 
         if(abs(sum(omega_k) - sum(omega_k_1)) < eps) {
             loop_cont = F

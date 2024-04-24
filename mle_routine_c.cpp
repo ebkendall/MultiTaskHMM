@@ -58,14 +58,14 @@ arma::mat forward_proc_it_c(arma::field<arma::vec> m_list, arma::field<arma::mat
         if(t == 0) {
             for(int l = 0; l < m_list.n_elem; l++) {
                 arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(l), cov_list(l), false);
-                alpha_mat(t,l) = init(l) * arma::as_scalar(norm_vec);
+                alpha_mat(t,l) = arma::as_scalar(init(l) * norm_vec);
             }
         } else {
             for(int l = 0; l < m_list.n_elem; l++) {
                 arma::vec a_ji = P.col(l);
-                arma::vec alpha_t_l = alpha_mat.row(t-1);
+                arma::rowvec alpha_t_l = alpha_mat.row(t-1);
                 
-                double a_ji_alpha_prod = arma::accu(a_ji % alpha_t_l);
+                double a_ji_alpha_prod = arma::as_scalar(alpha_t_l * a_ji);
                 arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(l), cov_list(l), false);
                 
                 alpha_mat(t,l) = a_ji_alpha_prod * arma::as_scalar(norm_vec);
@@ -83,7 +83,7 @@ arma::mat backward_proc_it_c(arma::field<arma::vec> m_list, arma::field<arma::ma
     
     for(int t = y_i.n_rows - 1; t >= 0; t--) {
         if(t == y_i.n_rows - 1) {
-            arma::vec beta_vec_1(beta_mat.n_cols, arma::fill::ones);
+            arma::rowvec beta_vec_1(beta_mat.n_cols, arma::fill::ones);
             beta_mat.row(t) = beta_vec_1;
         } else {
             for(int l = 0; l < m_list.n_elem; l++) {
@@ -104,6 +104,7 @@ arma::mat backward_proc_it_c(arma::field<arma::vec> m_list, arma::field<arma::ma
     return beta_mat;
 }
 
+// [[Rcpp::export]]
 arma::vec mu_s_update_c(const int s, arma::field<arma::mat> big_gamma, 
                       arma::mat y, arma::vec id) {
     
@@ -112,7 +113,7 @@ arma::vec mu_s_update_c(const int s, arma::field<arma::mat> big_gamma,
     double mu_hat_den = 0;
 
     for(int i = 0; i < id_unique.n_elem; i++) {
-        arma::uvec sub_ind = arma::find(id == i);
+        arma::uvec sub_ind = arma::find(id == id_unique(i));
         arma::mat y_i = y.rows(sub_ind);
         arma::vec gamma_i_s = big_gamma(i).col(s-1);
         
@@ -120,7 +121,9 @@ arma::vec mu_s_update_c(const int s, arma::field<arma::mat> big_gamma,
         
         arma::mat gamma_y = diag_gamma * y_i;
         
-        mu_hat_num += arma::sum(gamma_y, 0);
+        arma::rowvec gamma_col_sum = arma::sum(gamma_y, 0);
+        
+        mu_hat_num += gamma_col_sum.t();
         mu_hat_den += arma::accu(gamma_i_s);
     }
     
@@ -129,6 +132,7 @@ arma::vec mu_s_update_c(const int s, arma::field<arma::mat> big_gamma,
     return mu_hat;
 }
 
+// [[Rcpp::export]]
 arma::mat Sigma_s_update_c(const int s, arma::field<arma::mat> big_gamma,
                          arma::vec par, arma::field<arma::uvec> par_index,
                          arma::mat y, arma::vec id) {
@@ -147,7 +151,7 @@ arma::mat Sigma_s_update_c(const int s, arma::field<arma::mat> big_gamma,
     double sigma_hat_den = 0;
     
     for(int i = 0; i < id_unique.n_elem; i++) {
-        arma::uvec sub_ind = arma::find(id == i);
+        arma::uvec sub_ind = arma::find(id == id_unique(i));
         arma::mat y_i = y.rows(sub_ind);
         int n_i = y_i.n_rows;
         
@@ -167,6 +171,7 @@ arma::mat Sigma_s_update_c(const int s, arma::field<arma::mat> big_gamma,
     return Sigma_hat;
 }
 
+// [[Rcpp::export]]
 double pi_s_update_c(const int s, arma::field<arma::mat> big_gamma, arma::vec id) {
     
     double pi_hat_num = 0;
@@ -186,6 +191,7 @@ double pi_s_update_c(const int s, arma::field<arma::mat> big_gamma, arma::vec id
     return pi_hat;
 }
 
+// [[Rcpp::export]]
 double A_sm_update_c(int ind_j, arma::field<arma::field<arma::mat>> big_gamma,
                    arma::field<arma::field<arma::field<arma::field<arma::vec>>>> big_xi,
                    arma::field<arma::vec> id, int n_env) {
@@ -221,6 +227,7 @@ double A_sm_update_c(int ind_j, arma::field<arma::field<arma::mat>> big_gamma,
     
 }
 
+// [[Rcpp::export]]
 Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index, 
                           arma::mat y, arma::vec id) {
     // par_index KEY: (0) t_p, (1) init, (2) mu_1, (3) mu_2, (4) mu_3, (5) Sig_1, 
@@ -250,16 +257,18 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
                    {prob_val(4), prob_val(5), 1 - prob_val(4) - prob_val(5)}};
     
     arma::vec init_val = par.elem(par_index(1) - 1);
+    
     arma::vec init = {1-arma::accu(init_val), init_val(0), init_val(1)};
+    
     
     // After each calculation of omega, we can save these calculations for -----
     // updating the other parameters -------------------------------------------
     
-    arma::field<arma::vec> big_gamma(id_unique.n_elem);
+    arma::field<arma::mat> big_gamma(id_unique.n_elem);
     arma::field<arma::field<arma::field<arma::vec>>> big_xi(id_unique.n_elem);
     
     for(int i = 0; i < id_unique.n_elem; i++) {
-        arma::uvec sub_ind = arma::find(id == i);
+        arma::uvec sub_ind = arma::find(id == id_unique(i));
         arma::mat y_i = y.rows(sub_ind);
         int n_i = y_i.n_rows;
         
@@ -272,10 +281,12 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
         big_gamma(i) = gamma_mat;
         
         // pi calculation
-        pi_comp += arma::as_scalar(gamma_mat.row(0) % log(init));
+        pi_comp += arma::as_scalar(gamma_mat.row(0) * log(init));
         
         // transition prob calculation
+        big_xi(i).set_size(m_list.n_elem);
         for(int l = 0; l < m_list.n_elem; l++) {
+            big_xi(i)(l).set_size(m_list.n_elem);
             for(int j = 0; j < m_list.n_elem; j++) {
                 // The diagonal components are functions of the others
                 if(j != l) {
@@ -286,7 +297,7 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
                 }
             }
         }
-        
+    
         // likelihood calculation
         for(int t = 0; t < n_i; t++) {
             for(int l = 0; l < m_list.n_elem; l++) {

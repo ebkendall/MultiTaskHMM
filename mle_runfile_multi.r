@@ -1,15 +1,9 @@
-# # C++ packages and requirements
-library(Rcpp, quietly=T)
-library(RcppArmadillo, quietly = T)
-library(RcppDist, quietly = T)
-sourceCpp("mle_routine_c.cpp")
-
 source("mle_routine_multi.r")
 
 args = commandArgs(TRUE)
 ind = as.numeric(args[1])
 
-n_env = 1
+n_env = 3
 
 set.seed(ind)
 print(ind)
@@ -49,12 +43,13 @@ if(simulation) {
 }
 
 start_t_big = Sys.time()
+par = init_val_list
 par_est <- baum_welch_multi_environment(init_val_list, par_index, y, id, n_env)
 end_t_big = Sys.time(); print(paste0("Total time: ", end_t_big - start_t_big))
 
 model_out = list(par_est, end_t_big - start_t_big, par_index)
 
-save(model_out, file = paste0('Model_out/model_out_multi_', ind, '.rda'))
+save(model_out, file = paste0('Model_out/model_out_multi_e', n_env, "_ind", ind, '.rda'))
 
 for(e in 1:n_env) {
     print(paste0("Environment ", e))

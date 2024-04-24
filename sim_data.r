@@ -34,7 +34,7 @@ true_par_e1 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
 # *************** Environment 2 ***************
 # True parameter values
 true_par_e2 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
-                0.1, 0.45,                      # initial probabilities (same)
+                0.3, 0.3,                       # initial probabilities (same)
                 -1, -1, -1, -1, -1,             # mu_1 (different)  
                 1, 1, 1, 1, 1,                  # mu_2 (different)
                 -2, -2, -2, -2, -2,             # mu_3 (different)
@@ -45,7 +45,7 @@ true_par_e2 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
 # *************** Environment 3 ***************
 # True parameter values
 true_par_e3 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
-                0.1, 0.45,                      # initial probabilities (same)
+                0.35, 0.25,                     # initial probabilities (same)
                 0.5, 0.5, 0.5, 0.5, 0.5,        # mu_1 (different) 
                 -1, -1, -1, -1, -1,             # mu_2 (different)
                 2, 2, 2, 2, 2,                  # mu_3 (different)
