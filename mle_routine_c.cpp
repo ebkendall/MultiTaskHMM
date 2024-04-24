@@ -30,7 +30,7 @@ arma::vec xi_calc_c(int l, int j, arma::mat alpha_mat, arma::mat beta_mat,
         
         arma::vec b_t(m_list.n_elem, arma::fill::zeros);
         for(int i = 0; i < m_list.n_elem; i++){
-            arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(i), cov_list(i));
+            arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(i), cov_list(i), false);
             b_t(i) = arma::as_scalar(norm_vec);
         }
         
@@ -49,34 +49,60 @@ arma::vec xi_calc_c(int l, int j, arma::mat alpha_mat, arma::mat beta_mat,
     return xi_vec;
 }
 
-// forward_proc_it <- function(m_list, cov_list, init, P, y_i) {
-//     
-//     # m_list[[l]] = mean for state l
-//     # cov_list[[l]] = covariance for state l
-//     
-//     alpha_mat = matrix(nrow = nrow(y_i), ncol = length(m_list))
-//     
-//     for(t in 1:nrow(y_i)) {
-//         if(t == 1) {
-//             for(l in 1:length(m_list)) {
-//                 alpha_mat[t,l] = init[l] * dmvnorm(y_i[t, ], mean = m_list[[l]],
-//                                                    sigma = cov_list[[l]])
-//             }
-//         } else {
-//             for(l in 1:length(m_list)) {
-//                 a_ji = c(P[,l])
-//                 alpha_t_1 = alpha_mat[t-1, ]
-//                 
-//                 alpha_mat[t,l] = dmvnorm(y_i[t, ], mean = m_list[[l]], 
-//                                          sigma = cov_list[[l]]) * sum(a_ji * alpha_t_1)
-//             }
-//         }
-//     }
-//     return(alpha_mat)
-// }
+arma::mat forward_proc_it_c(arma::field<arma::vec> m_list, arma::field<arma::mat> cov_list,
+                            arma::vec init, arma::mat P, arma::mat y_i) {
+    
+    arma::mat alpha_mat(y_i.n_rows, m_list.n_elem);
+    
+    for(int t = 0; t < y_i.n_rows; t++) {
+        if(t == 0) {
+            for(int l = 0; l < m_list.n_elem; l++) {
+                arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(l), cov_list(l), false);
+                alpha_mat(t,l) = init(l) * arma::as_scalar(norm_vec);
+            }
+        } else {
+            for(int l = 0; l < m_list.n_elem; l++) {
+                arma::vec a_ji = P.col(l);
+                arma::vec alpha_t_l = alpha_mat.row(t-1);
+                
+                double a_ji_alpha_prod = arma::accu(a_ji % alpha_t_l);
+                arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(l), cov_list(l), false);
+                
+                alpha_mat(t,l) = a_ji_alpha_prod * arma::as_scalar(norm_vec);
+            }
+        }
+    }
+    
+    return alpha_mat;
+}
 
-
-
+arma::mat backward_proc_it_c(arma::field<arma::vec> m_list, arma::field<arma::mat> cov_list,
+                             arma::vec init, arma::mat P, arma::mat y_i) {
+    
+    arma::mat beta_mat(y_i.n_rows, m_list.n_elem);
+    
+    for(int t = y_i.n_rows - 1; t >= 0; t--) {
+        if(t == y_i.n_rows - 1) {
+            arma::vec beta_vec_1(beta_mat.n_cols, arma::fill::ones);
+            beta_mat.row(t) = beta_vec_1;
+        } else {
+            for(int l = 0; l < m_list.n_elem; l++) {
+                arma::vec b_j(m_list.n_elem, arma::fill::zeros);
+                for(int j = 0; j < m_list.n_elem; j++) {
+                    double beta_t_1 = beta_mat(t+1, j);
+                    double a_ij = P(l,j);
+                    
+                    arma::vec norm_vec = dmvnorm(y_i.row(t+1), m_list(j), cov_list(j), false);
+                    b_j(j) = beta_t_1 * a_ij * arma::as_scalar(norm_vec);
+                }
+                
+                beta_mat(t,l) = arma::accu(b_j);
+            }
+        }
+    }
+    
+    return beta_mat;
+}
 
 arma::vec mu_s_update_c(const int s, arma::field<arma::mat> big_gamma, 
                       arma::mat y, arma::vec id) {
@@ -196,7 +222,7 @@ double A_sm_update_c(int ind_j, arma::field<arma::field<arma::mat>> big_gamma,
 }
 
 Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index, 
-                      arma::mat y, arma::vec id) {
+                          arma::mat y, arma::vec id) {
     // par_index KEY: (0) t_p, (1) init, (2) mu_1, (3) mu_2, (4) mu_3, (5) Sig_1, 
     //                (6) Sig_2, (7) Sig_3
     
@@ -230,7 +256,7 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
     // updating the other parameters -------------------------------------------
     
     arma::field<arma::vec> big_gamma(id_unique.n_elem);
-    arma::field<arma::field<arma::vec>> big_xi(id_unique.n_elem);
+    arma::field<arma::field<arma::field<arma::vec>>> big_xi(id_unique.n_elem);
     
     for(int i = 0; i < id_unique.n_elem; i++) {
         arma::uvec sub_ind = arma::find(id == i);
@@ -238,14 +264,37 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
         int n_i = y_i.n_rows;
         
         // Calculate forward proc. & backward proc.
+        arma::mat alpha_mat = forward_proc_it_c(m_list, cov_list, init, P, y_i);
+        arma::mat beta_mat  = backward_proc_it_c(m_list, cov_list, init, P, y_i);
         
         // Calculate gamma for all time points
+        arma::mat gamma_mat = gamma_calc_c(alpha_mat, beta_mat, m_list, cov_list, init, P, y_i);
+        big_gamma(i) = gamma_mat;
         
         // pi calculation
+        pi_comp += arma::as_scalar(gamma_mat.row(0) % log(init));
         
         // transition prob calculation
+        for(int l = 0; l < m_list.n_elem; l++) {
+            for(int j = 0; j < m_list.n_elem; j++) {
+                // The diagonal components are functions of the others
+                if(j != l) {
+                    arma::vec xi_time = xi_calc_c(l, j, alpha_mat, beta_mat, m_list, cov_list, init, P, y_i);
+                    big_xi(i)(l)(j) = xi_time;
+                    
+                    A_comp += arma::accu(log(P(l,j)) * xi_time);
+                }
+            }
+        }
         
         // likelihood calculation
+        for(int t = 0; t < n_i; t++) {
+            for(int l = 0; l < m_list.n_elem; l++) {
+                arma::vec norm_vec = dmvnorm(y_i.row(t), m_list(l), cov_list(l), true);
+                
+                like_comp += gamma_mat(t, l) * arma::as_scalar(norm_vec);
+            }
+        }
     }
     
     double Q_k = pi_comp + A_comp + like_comp;
@@ -254,8 +303,6 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
     
     return omega_list;
 }
-
-
 
 // [[Rcpp::export]]
 int test_fnc() {
@@ -284,6 +331,12 @@ int test_fnc() {
                    {7,8}};
     
     Rcpp::Rcout << l % k << std::endl;
+    
+    arma::vec init = {1,2,3,4};
+    
+    Rcpp::Rcout << arma::accu(log(M(0,1)) * init) << std::endl;
+    
+    Rcpp::Rcout << arma::as_scalar(M.row(1) * log(init)) << std::endl;
     
     return 0; 
 }

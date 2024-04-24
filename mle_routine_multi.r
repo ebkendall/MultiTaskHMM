@@ -266,7 +266,7 @@ omega_k_calc <- function(par, par_index, y, id) {
         big_gamma[[i]] = gamma_mat
         
         # pi calculation
-        pi_comp = sum(gamma_mat[1,] * log(init))
+        pi_comp = pi_comp + sum(gamma_mat[1,] * log(init))
         
         # transition prob calculation
         big_xi[[i]] = vector(mode = 'list', length = length(m_list))
