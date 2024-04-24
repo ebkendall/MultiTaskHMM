@@ -222,7 +222,7 @@ A_sm_update <- function(ind_j, big_gamma, big_xi, id, n_env) {
     return(A_sm_hat)
 }
 
-omega_k_calc <- function(par, par_index, y, id, e) {
+omega_k_calc <- function(par, par_index, y, id) {
     id_unique <- unique(id)
     
     pi_comp   <- 0

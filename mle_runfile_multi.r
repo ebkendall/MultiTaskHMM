@@ -1,8 +1,8 @@
 # # C++ packages and requirements
-# library(Rcpp, quietly=T)
-# library(RcppArmadillo, quietly = T)
-# library(RcppDist, quietly = T)
-# sourceCpp("mle_routine_c.cpp")
+library(Rcpp, quietly=T)
+library(RcppArmadillo, quietly = T)
+library(RcppDist, quietly = T)
+sourceCpp("mle_routine_c.cpp")
 
 source("mle_routine_multi.r")
 
