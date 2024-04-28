@@ -9,7 +9,7 @@ library(LaplacesDemon)
 set.seed(2023)
 
 # Number of datasets to simulate
-n_sim = 1
+n_sim = 100
 
 # Number of environments to simulate
 n_env = 3
