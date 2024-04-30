@@ -3,9 +3,9 @@ library(tidyverse)
 library(gridExtra)
 library(latex2exp)
 
-par_index = list(t_p = 1:6, init_pi = 7:8, 
-                 mu_1 = 9:13, mu_2 = 14:18, mu_3 = 19:23, 
-                 Sig_1 = 24:48, Sig_2 = 49:73, Sig_3 = 74:98)
+par_index = list(t_p = 1:9, init_pi = 10:12, 
+                 mu_1 = 13:17, mu_2 = 18:22, mu_3 = 23:27, 
+                 Sig_1 = 28:52, Sig_2 = 53:77, Sig_3 = 78:102)
 
 shared_index = par_index$t_p
 
@@ -15,10 +15,10 @@ load('Data/true_par.rda')
 
 n_env = 1
 
-labels <- c(TeX(r'($P(S1 \to S2)$)'), TeX(r'($P(S1 \to S3)$)'), 
-            TeX(r'($P(S2 \to S1)$)'), TeX(r'($P(S2 \to S3)$)'),
-            TeX(r'($P(S3 \to S1)$)'), TeX(r'($P(S3 \to S2)$)'),
-            TeX(r'(P(init S2))'), TeX(r'(P(init S3))'),
+labels <- c(TeX(r'($P(S1 \to S1)$)'), TeX(r'($P(S1 \to S2)$)'), TeX(r'($P(S1 \to S3)$)'), 
+            TeX(r'($P(S2 \to S1)$)'), TeX(r'($P(S2 \to S2)$)'), TeX(r'($P(S2 \to S3)$)'),
+            TeX(r'($P(S3 \to S1)$)'), TeX(r'($P(S3 \to S2)$)'), TeX(r'($P(S3 \to S3)$)'),
+            TeX(r'(P(init S1))'), TeX(r'(P(init S2))'), TeX(r'(P(init S3))'),
             TeX(r'( (state 1) $\mu_1 [1]$)'), TeX(r'( (state 1) $\mu_1 [2]$)'), 
             TeX(r'( (state 1) $\mu_1 [3]$)'), TeX(r'( (state 1) $\mu_1 [4]$)'), 
             TeX(r'( (state 1) $\mu_1 [5]$)'),
@@ -55,6 +55,9 @@ for(e in 1:n_env) {
         disc_type = rep(n_env, nrow(par_est_mat[[e]]))
         y_label = ""
         
+        title_color = "black"
+        if(r %in% shared_index) title_color = "red"
+        
         plot_df = data.frame(yVar = yVar, disc_type = disc_type)
         VP[[r]] = ggplot(plot_df, aes(x=disc_type, y = yVar)) +
             geom_violin(trim=FALSE) +
@@ -63,13 +66,27 @@ for(e in 1:n_env) {
             ylab(y_label) +
             xlab(paste0("Parameter Value: ", round(truth_par[r], 3))) +
             geom_hline(yintercept=truth_par[r], linetype="dashed", color = "red") +
-            theme(text = element_text(size = 7))
+            theme(text = element_text(size = 7),
+                  plot.title = element_text(color=title_color, face="bold"))
     }
     
-    for(j in 1:11) {
-        grid.arrange(VP[[(j-1)*9 + 1]], VP[[(j-1)*9 + 2]], VP[[(j-1)*9 + 3]], 
-                     VP[[(j-1)*9 + 4]], VP[[(j-1)*9 + 5]], VP[[(j-1)*9 + 6]], 
-                     VP[[(j-1)*9 + 7]], VP[[(j-1)*9 + 8]], VP[[(j-1)*9 + 9]], ncol=3, nrow =3)
+    for(j in 1:12) {
+        if(j < 12) {
+            if(j==1) {
+                if(e == 1) {
+                    # only print the shared indices once
+                    grid.arrange(VP[[(j-1)*9 + 1]], VP[[(j-1)*9 + 2]], VP[[(j-1)*9 + 3]], 
+                                 VP[[(j-1)*9 + 4]], VP[[(j-1)*9 + 5]], VP[[(j-1)*9 + 6]], 
+                                 VP[[(j-1)*9 + 7]], VP[[(j-1)*9 + 8]], VP[[(j-1)*9 + 9]], ncol=3, nrow =3)       
+                }
+            } else {
+                grid.arrange(VP[[(j-1)*9 + 1]], VP[[(j-1)*9 + 2]], VP[[(j-1)*9 + 3]], 
+                             VP[[(j-1)*9 + 4]], VP[[(j-1)*9 + 5]], VP[[(j-1)*9 + 6]], 
+                             VP[[(j-1)*9 + 7]], VP[[(j-1)*9 + 8]], VP[[(j-1)*9 + 9]], ncol=3, nrow =3)
+            }
+        } else {
+            grid.arrange(VP[[100]], VP[[101]], VP[[102]], ncol=3, nrow =3)
+        }
     }
 }
 

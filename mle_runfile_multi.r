@@ -1,9 +1,11 @@
 source("mle_routine_multi.r")
 
-args = commandArgs(TRUE)
-ind = as.numeric(args[1])
+# args = commandArgs(TRUE)
+# ind = as.numeric(args[1])
 
-n_env = 1
+ind = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
+
+n_env = 3
 
 set.seed(ind)
 print(ind)
@@ -11,8 +13,10 @@ print(ind)
 simulation = T
 
 # Initial values
-init_val = c(1/4, 1/4, 1/4, 1/4, 1/4, 1/4, # transition probs
-             1/6, 1/6,                     # initial probabilities
+init_val = c(c(matrix(c(0.40, 0.30, 0.30,
+                        0.30, 0.40, 0.30,
+                        0.30, 0.30, 0.40), nrow = 3, byrow = T)),
+             0.40, 0.30, 0.30,             # initial probabilities
              0, 0, 0, 0, 0,                # mu_1
              1, 1, 1, 1, 1,                # mu_2
              2, 2, 2, 2, 2,                # mu_3
@@ -24,9 +28,9 @@ init_val_list <- list()
 for(e in 1:n_env) init_val_list[[e]] = init_val
 
 # Indexing of the parameter vector
-par_index = list(t_p = 1:6, init_pi = 7:8, 
-                 mu_1 = 9:13, mu_2 = 14:18, mu_3 = 19:23, 
-                 Sig_1 = 24:48, Sig_2 = 49:73, Sig_3 = 74:98)
+par_index = list(t_p = 1:9, init_pi = 10:12, 
+                 mu_1 = 13:17, mu_2 = 18:22, mu_3 = 23:27, 
+                 Sig_1 = 28:52, Sig_2 = 53:77, Sig_3 = 78:102)
 
 id = y = list()
 
@@ -57,15 +61,12 @@ for(e in 1:n_env) {
 
     print("Estimated P")
     prob_val = par_est_e[par_index$t_p]
-    P = matrix(c(1 - prob_val[1] - prob_val[2], prob_val[1], prob_val[2],
-                prob_val[3], 1 - prob_val[3] - prob_val[4], prob_val[4],
-                prob_val[5], prob_val[6], 1 - prob_val[5] - prob_val[6]),
-            nrow = 3, byrow = T)
+    P = matrix(prob_val, nrow = 3)
     print(P)
 
     print("Estimated initial prob.")
     init_val = par_est_e[par_index$init_pi]
-    init = c(1 - sum(init_val), init_val[1], init_val[2])
+    init = init_val
     print(init)
 
     print("Estimated mu_1")

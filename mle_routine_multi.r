@@ -25,7 +25,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     
     loop_cont = T
     
-    mpi = list(1,2,3,4,5,6,7,8, 
+    mpi = list(1,2,3,4,5,6,7,8,9,10,11,12, 
                c(par_index$mu_1), c(par_index$mu_2), c(par_index$mu_3),
                c(par_index$Sig_1), c(par_index$Sig_2), c(par_index$Sig_3))
     
@@ -51,7 +51,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                     }
                 } else if(sum(ind_j %in% par_index$init_pi) == length(ind_j)) {
                     # initial state prob.
-                    par[[e]][ind_j] = pi_s_update_c(ind_j - length(par_index$t_p) + 1, 
+                    par[[e]][ind_j] = pi_s_update_c(ind_j - length(par_index$t_p), 
                                                   big_gamma[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$mu_1) == length(ind_j)) {
                     # mu_1

@@ -22,8 +22,10 @@ S = 3
 
 # *************** Environment 1 ***************
 # True parameter values
-true_par_e1 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
-             0.1, 0.45,                         # initial probabilities (same)
+true_par_e1 = c(c(matrix(c(0.49, 0.01, 0.50,
+                           0.40, 0.20, 0.40,
+                           0.20, 0.05, 0.75), nrow = 3, byrow = T)),
+             0.45, 0.1, 0.45,                   # initial probabilities (same)
              0, 0, 0, 0, 0,                     # mu_1 (different)
              1, 1, 1, 1, 1,                     # mu_2 (different)
              2, 2, 2, 2, 2,                     # mu_3 (different)
@@ -33,8 +35,10 @@ true_par_e1 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
 
 # *************** Environment 2 ***************
 # True parameter values
-true_par_e2 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
-                0.3, 0.3,                       # initial probabilities (same)
+true_par_e2 = c(c(matrix(c(0.49, 0.01, 0.50,
+                           0.40, 0.20, 0.40,
+                           0.20, 0.05, 0.75), nrow = 3, byrow = T)),
+                0.4, 0.3, 0.3,                  # initial probabilities (same)
                 -1, -1, -1, -1, -1,             # mu_1 (different)  
                 1, 1, 1, 1, 1,                  # mu_2 (different)
                 -2, -2, -2, -2, -2,             # mu_3 (different)
@@ -44,8 +48,10 @@ true_par_e2 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
 
 # *************** Environment 3 ***************
 # True parameter values
-true_par_e3 = c(0.01, 0.5, 0.4, 0.4, 0.2, 0.05, # transition probs (same)
-                0.35, 0.25,                     # initial probabilities (same)
+true_par_e3 = c(c(matrix(c(0.49, 0.01, 0.50,
+                           0.40, 0.20, 0.40,
+                           0.20, 0.05, 0.75), nrow = 3, byrow = T)),
+                0.4, 0.35, 0.25,                # initial probabilities (same)
                 0.5, 0.5, 0.5, 0.5, 0.5,        # mu_1 (different) 
                 -1, -1, -1, -1, -1,             # mu_2 (different)
                 2, 2, 2, 2, 2,                  # mu_3 (different)
@@ -59,21 +65,14 @@ save(true_par, file = 'Data/true_par.rda')
 
 
 # Indexing of the parameter vector
-par_index = list(t_p = 1:6, init_pi = 7:8, 
-                 mu_1 = 9:13, mu_2 = 14:18, mu_3 = 19:23, 
-                 Sig_1 = 24:48, Sig_2 = 49:73, Sig_3 = 74:98)
+par_index = list(t_p = 1:9, init_pi = 10:12, 
+                 mu_1 = 13:17, mu_2 = 18:22, mu_3 = 23:27, 
+                 Sig_1 = 28:52, Sig_2 = 53:77, Sig_3 = 78:102)
 
 # Transition probability matrix
 # *** NOTE: this will be more interesting is this is in terms of covariates
 p_comp = true_par[[1]][par_index$t_p]
-P = matrix(c(1-p_comp[1]-p_comp[2],             p_comp[1],             p_comp[2],
-                         p_comp[3], 1-p_comp[3]-p_comp[4],             p_comp[4],
-                         p_comp[5],             p_comp[6], 1-p_comp[5]-p_comp[6]),
-           nrow = 3, byrow = T)
-
-# Initial State probabilities
-init_prob = c(1 - true_par[[1]][par_index$init_pi][1] - true_par[[1]][par_index$init_pi][2],
-              true_par[[1]][par_index$init_pi][1], true_par[[1]][par_index$init_pi][2])
+P = matrix(p_comp, nrow = 3)
 
 for(seed in 1:n_sim) {
 
@@ -88,6 +87,9 @@ for(seed in 1:n_sim) {
         Sigma_1 = matrix(true_par[[e]][par_index$Sig_1], nrow = 5)
         Sigma_2 = matrix(true_par[[e]][par_index$Sig_2], nrow = 5)
         Sigma_3 = matrix(true_par[[e]][par_index$Sig_3], nrow = 5)
+        
+        # Initial State probabilities
+        init_prob = true_par[[e]][par_index$init_pi]
         
         for(i in 1:N) {
             

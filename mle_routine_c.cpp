@@ -195,11 +195,11 @@ double pi_s_update_c(const int s, arma::field<arma::mat> big_gamma, arma::vec id
 double A_sm_update_c(int ind_j, arma::field<arma::field<arma::mat>> big_gamma,
                    arma::field<arma::field<arma::field<arma::field<arma::vec>>>> big_xi,
                    arma::field<arma::vec> id, int n_env) {
-    // arma::mat pos_matrix = {{0, 1, 2},
-    //                         {3, 0, 4}, 
-    //                         {5, 6, 0}};
-    arma::mat pos_mat = {{0, 0, 1, 1, 2, 2},
-                         {1, 2, 0, 2, 0, 1}}; 
+    
+    // (row)
+    // (column)
+    arma::mat pos_mat = {{0, 1, 2, 0, 1, 2, 0, 1, 2},
+                         {0, 0, 0, 1, 1, 1, 2, 2, 2}}; 
     arma::vec ind_j_pos = pos_mat.col(ind_j-1);
     int s = ind_j_pos(0);
     int m = ind_j_pos(1);
@@ -252,13 +252,9 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
     
     arma::vec prob_val = par.elem(par_index(0) - 1);
     
-    arma::mat P = {{1 - prob_val(0) - prob_val(1), prob_val(0), prob_val(1)},
-                   {prob_val(2), 1 - prob_val(2) - prob_val(3), prob_val(3)},
-                   {prob_val(4), prob_val(5), 1 - prob_val(4) - prob_val(5)}};
+    arma::mat P = arma::reshape(prob_val, m_list.n_elem, m_list.n_elem);
     
-    arma::vec init_val = par.elem(par_index(1) - 1);
-    
-    arma::vec init = {1-arma::accu(init_val), init_val(0), init_val(1)};
+    arma::vec init = par.elem(par_index(1) - 1);
     
     
     // After each calculation of omega, we can save these calculations for -----
@@ -281,6 +277,8 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
         big_gamma(i) = gamma_mat;
         
         // pi calculation
+        // Rcpp::Rcout << init.t() << std::endl;
+        // Rcpp::Rcout << log(init.t()) << std::endl;
         pi_comp += arma::as_scalar(gamma_mat.row(0) * log(init));
         
         // transition prob calculation
@@ -288,13 +286,10 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
         for(int l = 0; l < m_list.n_elem; l++) {
             big_xi(i)(l).set_size(m_list.n_elem);
             for(int j = 0; j < m_list.n_elem; j++) {
-                // The diagonal components are functions of the others
-                if(j != l) {
-                    arma::vec xi_time = xi_calc_c(l, j, alpha_mat, beta_mat, m_list, cov_list, init, P, y_i);
-                    big_xi(i)(l)(j) = xi_time;
-                    
-                    A_comp += arma::accu(log(P(l,j)) * xi_time);
-                }
+                arma::vec xi_time = xi_calc_c(l, j, alpha_mat, beta_mat, m_list, cov_list, init, P, y_i);
+                big_xi(i)(l)(j) = xi_time;
+                
+                A_comp += arma::accu(log(P(l,j)) * xi_time);
             }
         }
     
