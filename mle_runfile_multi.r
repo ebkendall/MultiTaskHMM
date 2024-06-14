@@ -1,10 +1,10 @@
 source("mle_routine_multi.r")
 
-args = commandArgs(TRUE)
-ind = as.numeric(args[1])
-n_env = as.numeric(args[2])
-# ind = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
-# n_env = 1
+# args = commandArgs(TRUE)
+# ind = as.numeric(args[1])
+# n_env = as.numeric(args[2])
+ind = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
+n_env = 1
 
 set.seed(ind)
 print(ind)
