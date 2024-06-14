@@ -1,11 +1,10 @@
 source("mle_routine_multi.r")
 
-# args = commandArgs(TRUE)
-# ind = as.numeric(args[1])
-
-ind = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
-
-n_env = 3
+args = commandArgs(TRUE)
+ind = as.numeric(args[1])
+n_env = as.numeric(args[2])
+# ind = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
+# n_env = 1
 
 set.seed(ind)
 print(ind)
@@ -13,10 +12,10 @@ print(ind)
 simulation = T
 
 # Initial values
-init_val = c(c(matrix(c(0.40, 0.30, 0.30,
-                        0.30, 0.40, 0.30,
-                        0.30, 0.30, 0.40), nrow = 3, byrow = T)),
-             0.40, 0.30, 0.30,             # initial probabilities
+init_val = c(c(matrix(c(0.49, 0.01, 0.50,
+                        0.40, 0.20, 0.40,
+                        0.20, 0.05, 0.75), nrow = 3, byrow = T)),
+             0.45, 0.1, 0.45,              # initial probabilities
              0, 0, 0, 0, 0,                # mu_1
              1, 1, 1, 1, 1,                # mu_2
              2, 2, 2, 2, 2,                # mu_3

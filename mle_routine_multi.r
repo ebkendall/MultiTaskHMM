@@ -10,8 +10,10 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     
     start_t = Sys.time()
     omega_k_list <- list()
+    like_k = like_k_1 = rep(0, n_env)
     for(e in 1:n_env) {
-        omega_k_list[[e]] <- omega_k_calc_c(par[[e]], par_index, y[[e]], id[[e]])   
+        omega_k_list[[e]] <- omega_k_calc_c(par[[e]], par_index, y[[e]], id[[e]])
+        like_k[e] <- log_likelihood_fnc_c(par[[e]], par_index, y[[e]], id[[e]])
     }
     end_t = Sys.time(); print(end_t - start_t)
     
@@ -29,13 +31,16 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                c(par_index$mu_1), c(par_index$mu_2), c(par_index$mu_3),
                c(par_index$Sig_1), c(par_index$Sig_2), c(par_index$Sig_3))
     
-    print("Initial omega:")
-    print(omega_k)
+    # print("Initial omega:")
+    # print(omega_k)
+    print("Initial log-like:")
+    print(like_k)
     
     it_count = 0
     
     while(loop_cont) {
         omega_k_1 = omega_k
+        like_k_1 = like_k
 
         for(e in 1:n_env) {
             for(j in 1:length(mpi)) {
@@ -84,6 +89,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 omega_k[e]     = omega_k_list[[e]][[1]]
                 big_gamma[[e]] = omega_k_list[[e]][[2]]
                 big_xi[[e]]    = omega_k_list[[e]][[3]]
+                like_k[e] = log_likelihood_fnc_c(par[[e]], par_index, y[[e]], id[[e]])
                 
                 # Omega needs to be updated for all env. if P is updated
                 if(sum(ind_j %in% par_index$t_p) == length(ind_j)) {
@@ -94,14 +100,19 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                             omega_k[ee] = omega_k_list[[ee]][[1]]
                             big_gamma[[ee]] = omega_k_list[[ee]][[2]]
                             big_xi[[ee]]    = omega_k_list[[ee]][[3]]
+                            
+                            like_k[ee] = log_likelihood_fnc_c(par[[ee]], par_index, y[[ee]], id[[ee]])
                         }
                     }
                 }
             }   
         }
 
-        print(paste0(it_count, ". prev: ", round(omega_k_1, digits = 4), 
-                     ",    curr: ", round(omega_k, digits = 4)))
+        print(paste0(it_count, ". Omega prev: ", round(omega_k_1, digits = 4),
+                     ",    Omega curr: ", round(omega_k, digits = 4)))
+        # print(paste0(it_count, ". log-like prev: ", round(like_k_1, digits = 4), 
+        #              ",    log-like curr: ", round(like_k, digits = 4)))   
+        if(like_k_1 > like_k) {print("ERROR: Baum-Welch NOT MONOTONICALLY INC")}
 
         if(abs(sum(omega_k) - sum(omega_k_1)) < eps) {
             loop_cont = F
@@ -459,31 +470,22 @@ backward_proc_it <- function(m_list, cov_list, init, P, y_i) {
 
 log_likelihood_fnc <- function(par, par_index, y, id) {
     
+    # par_index = list(t_p = 1:9, init_pi = 10:12, 
+    #              mu_1 = 13:17, mu_2 = 18:22, mu_3 = 23:27, 
+    #              Sig_1 = 28:52, Sig_2 = 53:77, Sig_3 = 78:102)
     # Initial state probabilities
-    init_logit = c(1, exp(pars[par_index$logit_pi][1]), 
-                   exp(pars[par_index$logit_pi][2]))
-    init = init_logit / sum(init_logit)
+    init = par[par_index$init_pi]
     
     m_1 = par[par_index$mu_1] # mean for state 1
     m_2 = par[par_index$mu_2] # mean for state 2
     m_3 = par[par_index$mu_3] # mean for state 3
     
-    cov_1 = diag(exp(par[par_index$log_sig_1])) # covariance for state 1
-    cov_2 = diag(exp(par[par_index$log_sig_2])) # covariance for state 2
-    cov_3 = diag(exp(par[par_index$log_sig_3])) # covariance for state 3
+    cov_1 = matrix(par[par_index$Sig_1], ncol = 5) # covariance for state 1
+    cov_2 = matrix(par[par_index$Sig_2], ncol = 5) # covariance for state 2
+    cov_3 = matrix(par[par_index$Sig_3], ncol = 5) # covariance for state 3
     
     # Transition probability matrix
-    q1   = exp(par[par_index$logit_t_p][1])
-    q2   = exp(par[par_index$logit_t_p][2])
-    q3   = exp(par[par_index$logit_t_p][3])
-    q4   = exp(par[par_index$logit_t_p][4])
-    q5   = exp(par[par_index$logit_t_p][5])
-    q6   = exp(par[par_index$logit_t_p][6])
-    
-    Q = matrix(c(1,  q1, q2,
-                 q3,   1, q4,
-                 q5,  q6,  1), ncol=3, byrow=T)
-    P = Q / rowSums(Q)
+    P = matrix(par[par_index$t_p], ncol = 3)
     
     # Parallelized computation of the log-likelihood
     log_total_val = foreach(i=unique(id), .combine='+') %dopar% {

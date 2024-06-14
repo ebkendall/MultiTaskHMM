@@ -311,7 +311,70 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
 }
 
 // [[Rcpp::export]]
-int test_fnc() {
+double log_likelihood_fnc_c(arma::vec par, arma::field<arma::uvec> par_index, 
+                            arma::mat y, arma::vec id) {
+    // par_index KEY: (0) t_p, (1) init, (2) mu_1, (3) mu_2, (4) mu_3, (5) Sig_1, 
+    //                (6) Sig_2, (7) Sig_3
+    
+    // Initialize key pieces ---------------------------------------------------
+    arma::vec init_t = par.elem(par_index(1) - 1);
+    arma::rowvec init = init_t.t();
+    
+    arma::vec id_unique = arma::unique(id);
+    
+    arma::field<arma::vec> m_list(3);
+    m_list(0) = par.elem(par_index(2) - 1);
+    m_list(1) = par.elem(par_index(3) - 1);
+    m_list(2) = par.elem(par_index(4) - 1);
+    
+    arma::field<arma::mat> cov_list(3);
+    cov_list(0) = arma::reshape(par.elem(par_index(5) - 1), 5, 5);
+    cov_list(1) = arma::reshape(par.elem(par_index(6) - 1), 5, 5);
+    cov_list(2) = arma::reshape(par.elem(par_index(7) - 1), 5, 5);
+    
+    arma::mat P = arma::reshape(par.elem(par_index(0) - 1), 3, 3);
+    //  ------------------------------------------------------------------------
+    
+    double log_total_val = 0;
+    
+    for(int i = 0; i < id_unique.n_elem; i++) {
+        arma::uvec sub_ind = arma::find(id == id_unique(i));
+        arma::mat y_i = y.rows(sub_ind);
+        
+        double d_1 = arma::as_scalar(dmvnorm(y_i.row(0), m_list(0), cov_list(0)));
+        double d_2 = arma::as_scalar(dmvnorm(y_i.row(0), m_list(1), cov_list(1)));
+        double d_3 = arma::as_scalar(dmvnorm(y_i.row(0), m_list(2), cov_list(2)));
+        
+        arma::vec d_diag = {d_1, d_2, d_3};
+        arma::mat D = arma::diagmat(d_diag);
+        
+        arma::rowvec f_i = init * D;
+        double log_norm = 0;
+        arma::rowvec val(3);
+        
+        for(int t = 1; t < y_i.n_rows; t++) {
+            d_1 = arma::as_scalar(dmvnorm(y_i.row(t), m_list(0), cov_list(0)));
+            d_2 = arma::as_scalar(dmvnorm(y_i.row(t), m_list(1), cov_list(1)));
+            d_3 = arma::as_scalar(dmvnorm(y_i.row(t), m_list(2), cov_list(2)));
+            
+            d_diag = {d_1, d_2, d_3};
+            D = arma::diagmat(d_diag);
+            
+            val = f_i * P * D;
+            double norm_val = arma::norm(val, 2);
+            f_i = val / norm_val;
+            log_norm = log_norm + log(norm_val);
+        }
+        
+        log_total_val = log_total_val + log(arma::accu(f_i)) + log_norm;
+    }
+
+    return log_total_val;
+
+}
+
+// [[Rcpp::export]]
+int test_fnc(arma::vec par, arma::field<arma::uvec> par_index, arma::mat y) {
     
     arma::mat M = {{1,2,3,4},
                     {5,6,7,8},
@@ -343,6 +406,25 @@ int test_fnc() {
     Rcpp::Rcout << arma::accu(log(M(0,1)) * init) << std::endl;
     
     Rcpp::Rcout << arma::as_scalar(M.row(1) * log(init)) << std::endl;
+    
+    arma::field<arma::vec> m_list(3);
+    m_list(0) = par.elem(par_index(2) - 1);
+    m_list(1) = par.elem(par_index(3) - 1);
+    m_list(2) = par.elem(par_index(4) - 1);
+    
+    arma::field<arma::mat> cov_list(3);
+    cov_list(0) = arma::reshape(par.elem(par_index(5) - 1), 5, 5);
+    cov_list(1) = arma::reshape(par.elem(par_index(6) - 1), 5, 5);
+    cov_list(2) = arma::reshape(par.elem(par_index(7) - 1), 5, 5);
+    
+    arma::vec d_1_vec = dmvnorm(y.row(0), m_list(0), cov_list(0));
+    double d_1 = arma::as_scalar(dmvnorm(y.row(0), m_list(0), cov_list(0)));
+    
+    Rcpp::Rcout << d_1_vec << std::endl;
+    Rcpp::Rcout << d_1 << std::endl;
+    
+    arma::rowvec t_1 = {3, 4};
+    Rcpp::Rcout << arma::norm(t_1, 2) << std::endl;
     
     return 0; 
 }
