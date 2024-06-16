@@ -172,9 +172,9 @@ arma::mat Sigma_s_update_c(const int s, arma::field<arma::mat> big_gamma,
 }
 
 // [[Rcpp::export]]
-double pi_s_update_c(const int s, arma::field<arma::mat> big_gamma, arma::vec id) {
+arma::rowvec pi_s_update_c(arma::field<arma::mat> big_gamma, arma::vec id) {
     
-    double pi_hat_num = 0;
+    arma::rowvec pi_hat_num(3, arma::fill::zeros);
     double pi_hat_den = 0;
     
     arma::vec id_unique = arma::unique(id);
@@ -182,46 +182,42 @@ double pi_s_update_c(const int s, arma::field<arma::mat> big_gamma, arma::vec id
     for(int i = 0; i < id_unique.n_elem; i++) {
         arma::mat gamma_i = big_gamma(i);
         
-        pi_hat_num += gamma_i(0, s-1);
+        pi_hat_num = pi_hat_num + gamma_i.row(0);
         pi_hat_den += arma::accu(gamma_i.row(0));
     }
     
-    double pi_hat = pi_hat_num / pi_hat_den;
+    arma::rowvec pi_hat = pi_hat_num / pi_hat_den;
     
     return pi_hat;
 }
 
 // [[Rcpp::export]]
-double A_sm_update_c(int ind_j, arma::field<arma::field<arma::mat>> big_gamma,
-                   arma::field<arma::field<arma::field<arma::field<arma::vec>>>> big_xi,
-                   arma::field<arma::vec> id, int n_env) {
+arma::mat A_sm_update_c(arma::field<arma::field<arma::mat>> big_gamma,
+                        arma::field<arma::field<arma::field<arma::field<arma::vec>>>> big_xi,
+                        arma::field<arma::vec> id, int n_env) {
     
-    // (row)
-    // (column)
-    arma::mat pos_mat = {{0, 1, 2, 0, 1, 2, 0, 1, 2},
-                         {0, 0, 0, 1, 1, 1, 2, 2, 2}}; 
-    arma::vec ind_j_pos = pos_mat.col(ind_j-1);
-    int s = ind_j_pos(0);
-    int m = ind_j_pos(1);
-    
-    double a_sm_num = 0;
-    double a_sm_den = 0;
+    arma::mat a_sm_num(3, 3, arma::fill::zeros);
+    arma::mat a_sm_den(3, 3, arma::fill::zeros);
     
     for(int ee = 0; ee < n_env; ee++) {
         arma::vec id_unique = arma::unique(id(ee));
         for(int i = 0; i < id_unique.n_elem; i++) {
-            arma::mat gamma_i = big_gamma(ee)(i);
-            arma::field<arma::field<arma::vec>> xi_i = big_xi(ee)(i);
-            
-            // subset the s column to be all BUT the last element
-            arma::vec gamma_i_col_s = gamma_i.col(s).subvec(0, gamma_i.n_rows - 2);
-            
-            a_sm_num += arma::accu(xi_i(s)(m));
-            a_sm_den += arma::accu(gamma_i_col_s);
+            for(int s = 0; s < 3; s++) {
+                for(int m = 0; m < 3; m++) {
+                    arma::mat gamma_i = big_gamma(ee)(i);
+                    arma::field<arma::field<arma::vec>> xi_i = big_xi(ee)(i);
+                    
+                    // subset the s column to be all BUT the last element
+                    arma::vec gamma_i_col_s = gamma_i.col(s).subvec(0, gamma_i.n_rows - 2);
+                    
+                    a_sm_num(s,m) = a_sm_num(s,m) + arma::accu(xi_i(s)(m));
+                    a_sm_den(s,m) = a_sm_den(s,m) + arma::accu(gamma_i_col_s);       
+                }
+            }
         }
     }
     
-    double A_sm_hat = a_sm_num / a_sm_den;
+    arma::mat A_sm_hat = a_sm_num / a_sm_den;
     
     return A_sm_hat;
     
@@ -279,7 +275,7 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
         // pi calculation
         // Rcpp::Rcout << init.t() << std::endl;
         // Rcpp::Rcout << log(init.t()) << std::endl;
-        pi_comp += arma::as_scalar(gamma_mat.row(0) * log(init));
+        pi_comp = pi_comp + arma::as_scalar(gamma_mat.row(0) * log(init));
         
         // transition prob calculation
         big_xi(i).set_size(m_list.n_elem);
@@ -289,7 +285,7 @@ Rcpp::List omega_k_calc_c(arma::vec par, arma::field<arma::uvec> par_index,
                 arma::vec xi_time = xi_calc_c(l, j, alpha_mat, beta_mat, m_list, cov_list, init, P, y_i);
                 big_xi(i)(l)(j) = xi_time;
                 
-                A_comp += arma::accu(log(P(l,j)) * xi_time);
+                A_comp = A_comp + arma::accu(log(P(l,j)) * xi_time);
             }
         }
     
@@ -381,8 +377,8 @@ int test_fnc(arma::vec par, arma::field<arma::uvec> par_index, arma::mat y) {
                     {9,10,11,12},
                     {13,14,15,16}};
     arma::vec M_s = M.col(1).subvec(0, M.n_rows - 2);
-    Rcpp::Rcout << M << std::endl;
-    Rcpp::Rcout << M_s << std::endl;
+    // Rcpp::Rcout << M << std::endl;
+    // Rcpp::Rcout << M_s << std::endl;
     
     arma::field<arma::mat> f(4);
     
@@ -391,7 +387,7 @@ int test_fnc(arma::vec par, arma::field<arma::uvec> par_index, arma::mat y) {
     f(2) = arma::eye(3,3);
     f(3) = arma::eye(3,3);
     
-    Rcpp::Rcout << f.n_elem << std::endl;
+    // Rcpp::Rcout << f.n_elem << std::endl;
     
     arma::mat l = {{1,2},
                    {3,4}};
@@ -401,11 +397,21 @@ int test_fnc(arma::vec par, arma::field<arma::uvec> par_index, arma::mat y) {
     
     Rcpp::Rcout << l % k << std::endl;
     
-    arma::vec init = {1,2,3,4};
+    arma::mat alpha_beta_prod = l % k;
+    arma::vec alpha_beta_sum  = arma::sum(alpha_beta_prod, 1);
     
-    Rcpp::Rcout << arma::accu(log(M(0,1)) * init) << std::endl;
+    arma::vec alpha_l = l.col(0);
+    arma::vec beta_l  = k.col(0);
     
-    Rcpp::Rcout << arma::as_scalar(M.row(1) * log(init)) << std::endl;
+    Rcpp::Rcout << alpha_l % beta_l << std::endl;
+    Rcpp::Rcout << alpha_beta_sum << std::endl;
+    Rcpp::Rcout << (alpha_l % beta_l) / alpha_beta_sum << std::endl;
+    
+    // arma::vec init = {1,2,3,4};
+    // 
+    // Rcpp::Rcout << arma::accu(log(M(0,1)) * init) << std::endl;
+    // 
+    // Rcpp::Rcout << arma::as_scalar(M.row(1) * log(init)) << std::endl;
     
     arma::field<arma::vec> m_list(3);
     m_list(0) = par.elem(par_index(2) - 1);
@@ -417,14 +423,22 @@ int test_fnc(arma::vec par, arma::field<arma::uvec> par_index, arma::mat y) {
     cov_list(1) = arma::reshape(par.elem(par_index(6) - 1), 5, 5);
     cov_list(2) = arma::reshape(par.elem(par_index(7) - 1), 5, 5);
     
-    arma::vec d_1_vec = dmvnorm(y.row(0), m_list(0), cov_list(0));
-    double d_1 = arma::as_scalar(dmvnorm(y.row(0), m_list(0), cov_list(0)));
-    
-    Rcpp::Rcout << d_1_vec << std::endl;
-    Rcpp::Rcout << d_1 << std::endl;
-    
-    arma::rowvec t_1 = {3, 4};
-    Rcpp::Rcout << arma::norm(t_1, 2) << std::endl;
+    // arma::vec d_1_vec = dmvnorm(y.row(0), m_list(0), cov_list(0));
+    // double d_1 = arma::as_scalar(dmvnorm(y.row(0), m_list(0), cov_list(0)));
+    // 
+    // Rcpp::Rcout << d_1_vec << std::endl;
+    // Rcpp::Rcout << d_1 << std::endl;
+    // 
+    // arma::rowvec t_1 = {3, 4};
+    // Rcpp::Rcout << arma::norm(t_1, 2) << std::endl;
+    // 
+    // arma::vec init = par.elem(par_index(1) - 1); 
+    // 
+    // arma::mat g_temp = {{0.5,1,1.5},
+    //                     {1,2,3}};
+    // 
+    // Rcpp::Rcout << g_temp.row(0) * log(init) << std::endl;
+    // Rcpp::Rcout << arma::as_scalar(g_temp.row(0) * log(init)) << std::endl;
     
     return 0; 
 }

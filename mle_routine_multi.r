@@ -27,14 +27,9 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     
     loop_cont = T
     
-    mpi = list(1,2,3,4,5,6,7,8,9,10,11,12, 
+    mpi = list(c(par_index$t_p), c(par_index$init_pi), 
                c(par_index$mu_1), c(par_index$mu_2), c(par_index$mu_3),
                c(par_index$Sig_1), c(par_index$Sig_2), c(par_index$Sig_3))
-    
-    # print("Initial omega:")
-    # print(omega_k)
-    print("Initial log-like:")
-    print(like_k)
     
     it_count = 0
     
@@ -44,35 +39,38 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     while(loop_cont) {
         
         # Update transition probability across all environments ----------------
-        for(j in 1:max(par_index$t_p)) {
-            it_count = it_count + 1
-            ind_j = mpi[[j]]
-            tp_temp = A_sm_update_c(ind_j, big_gamma, big_xi, id, n_env)
-            for(eee in 1:n_env) {
-                par[[eee]][ind_j] = tp_temp
-                
-                omega_k_list[[eee]] <- omega_k_calc_c(par[[eee]], par_index, 
-                                                      y[[eee]], id[[eee]])
-                omega_k[eee]     = omega_k_list[[eee]][[1]]
-                big_gamma[[eee]] = omega_k_list[[eee]][[2]]
-                big_xi[[eee]]    = omega_k_list[[eee]][[3]]
-                like_k[eee] = log_likelihood_fnc_c(par[[eee]], par_index, 
-                                                   y[[eee]], id[[eee]])
-            }
+        it_count = it_count + 1
+        ind_j = mpi[[1]]
+        tp_temp = A_sm_update_c(big_gamma, big_xi, id, n_env)
+        for(eee in 1:n_env) {
+            par[[eee]][ind_j] = c(tp_temp)
             
-            if(sqrt(sum((omega_k - omega_k_1)^2)) < eps) {
-                loop_cont = F
-                break
-            }
-            
-            omega_k_1 = omega_k
+            omega_k_list[[eee]] <- omega_k_calc_c(par[[eee]], par_index,
+                                                  y[[eee]], id[[eee]])
+            omega_k[eee]     = omega_k_list[[eee]][[1]]
+            big_gamma[[eee]] = omega_k_list[[eee]][[2]]
+            big_xi[[eee]]    = omega_k_list[[eee]][[3]]
+            like_k[eee] = log_likelihood_fnc_c(par[[eee]], par_index,
+                                               y[[eee]], id[[eee]])
         }
+        
+        if(sum(-like_k_1 < -like_k) > 0) {
+            stop("ERROR: Baum-Welch Likelihood NOT MONOTONICALLY INC")
+        }
+        
+        if(sqrt(sum((omega_k - omega_k_1)^2)) < eps) {
+            loop_cont = F
+            break
+        }
+        
+        omega_k_1 = omega_k
+        like_k_1 = like_k
         
         # Intermittent check of convergence
         if(!loop_cont) break;
         
         # Update all other parameters ------------------------------------------
-        for(j in (max(par_index$t_p) + 1):length(mpi)) {
+        for(j in 2:length(mpi)) {
             for(e in 1:n_env) {
                 it_count = it_count + 1
                 
@@ -80,8 +78,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 
                 if(sum(ind_j %in% par_index$init_pi) == length(ind_j)) {
                     # initial state prob.
-                    par[[e]][ind_j] = pi_s_update_c(ind_j - max(par_index$t_p), 
-                                                  big_gamma[[e]], id[[e]])
+                    par[[e]][ind_j] = pi_s_update_c(big_gamma[[e]], id[[e]])
                 } else if(sum(ind_j %in% par_index$mu_1) == length(ind_j)) {
                     # mu_1
                     par[[e]][ind_j] = mu_s_update_c(1, big_gamma[[e]], 
@@ -116,12 +113,20 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 like_k[e] = log_likelihood_fnc_c(par[[e]], par_index, y[[e]], id[[e]])
             }
             
+            # print(paste0(it_count, ". -loglike prev: ", round(-like_k_1, digits = 4),
+            #              " >    -loglike curr: ", round(-like_k, digits = 4)))
+            
+            if(sum(-like_k_1 < -like_k) > 0) {
+                stop("ERROR: Baum-Welch Likelihood NOT MONOTONICALLY INC")
+            }
+            
             if(sqrt(sum((omega_k - omega_k_1)^2)) < eps) {
                 loop_cont = F
                 break
             }
             
             omega_k_1 = omega_k
+            like_k_1 = like_k
         }
 
         print(paste0(it_count, ". Omega prev: ", round(omega_k_1, digits = 4),
