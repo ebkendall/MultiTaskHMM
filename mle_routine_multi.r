@@ -6,7 +6,7 @@ sourceCpp("mle_routine_c.cpp")
 
 baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     
-    eps <- 1e-4
+    eps <- 1e-5
     
     start_t = Sys.time()
     omega_k_list <- list()
@@ -39,8 +39,10 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
     while(loop_cont) {
         
         # Update transition probability across all environments ----------------
+        j = 1
         it_count = it_count + 1
-        ind_j = mpi[[1]]
+        ind_j = mpi[[j]]
+        
         tp_temp = A_sm_update_c(big_gamma, big_xi, id, n_env)
         for(eee in 1:n_env) {
             par[[eee]][ind_j] = c(tp_temp)
@@ -70,7 +72,7 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
         omega_k_1 = omega_k
         like_k_1 = like_k
         
-        # Intermittent check of convergence
+        # Intermittent check of convergence ------------------------------------
         if(!loop_cont) break;
         
         # Update all other parameters ------------------------------------------
@@ -125,9 +127,8 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 }
             }
             
-            print(paste0(it_count, ". Omega prev: ", round(omega_k_1, digits = 4),
-                         ",    Omega curr: ", round(omega_k, digits = 4)))
-            print(paste0("2-norm diff = ", sqrt(sum((omega_k - omega_k_1)^2))))
+            omega_curr_print = omega_k
+            omega_prev_print = omega_k_1
             
             if(sqrt(sum((omega_k - omega_k_1)^2)) < eps) {
                 loop_cont = F
@@ -137,6 +138,11 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
             omega_k_1 = omega_k
             like_k_1 = like_k
         }
+        
+        print(paste0(it_count, ". Omega prev: ", round(omega_prev_print, digits = 4),
+                     ",    Omega curr: ", round(omega_curr_print, digits = 4)))
+        print(paste0("2-norm diff = ", sqrt(sum((omega_curr_print - omega_prev_print)^2))))
+        
     }
     
     return(par)

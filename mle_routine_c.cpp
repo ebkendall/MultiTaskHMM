@@ -196,6 +196,8 @@ arma::mat A_sm_update_c(arma::field<arma::field<arma::mat>> big_gamma,
                         arma::field<arma::field<arma::field<arma::field<arma::vec>>>> big_xi,
                         arma::field<arma::vec> id, int n_env) {
     
+    // s = row number of the transition probability matrix
+
     arma::mat a_sm_num(3, 3, arma::fill::zeros);
     arma::mat a_sm_den(3, 3, arma::fill::zeros);
     
@@ -222,7 +224,7 @@ arma::mat A_sm_update_c(arma::field<arma::field<arma::mat>> big_gamma,
                     
                     a_sm_num2(s,m) = a_sm_num2(s,m) + arma::accu(xi_i(s)(m));
                     a_sm_den2(s,m) = a_sm_den2(s,m) + arma::accu(gamma_i_col_s);
-                }
+                }   
             }
         }
         
@@ -231,9 +233,8 @@ arma::mat A_sm_update_c(arma::field<arma::field<arma::mat>> big_gamma,
     
     A_sm_hat = a_sm_num / a_sm_den;
     A_sm_hat2 = A_sm_hat2 / n_env;
-    
-    return A_sm_hat2;
-    
+
+    return A_sm_hat;
 }
 
 // [[Rcpp::export]]
