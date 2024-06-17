@@ -13,7 +13,8 @@ index_seeds = 1:100
 
 load('Data/true_par.rda')
 
-n_env = 1
+args = commandArgs(TRUE)
+n_env = as.numeric(args[1])
 
 labels <- c(TeX(r'($P(S1 \to S1)$)'), TeX(r'($P(S1 \to S2)$)'), TeX(r'($P(S1 \to S3)$)'), 
             TeX(r'($P(S2 \to S1)$)'), TeX(r'($P(S2 \to S2)$)'), TeX(r'($P(S2 \to S3)$)'),

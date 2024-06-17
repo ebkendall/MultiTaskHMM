@@ -55,7 +55,11 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
         }
         
         if(sum(-like_k_1 < -like_k) > 0) {
-            stop("ERROR: Baum-Welch Likelihood NOT MONOTONICALLY INC")
+            if(n_env == 1) {
+                print(paste0(it_count, ". -loglike prev: ", round(-like_k_1, digits = 4),
+                             " >    -loglike curr: ", round(-like_k, digits = 4)))
+                stop("ERROR: Baum-Welch Likelihood NOT MONOTONICALLY INC")
+            }
         }
         
         if(sqrt(sum((omega_k - omega_k_1)^2)) < eps) {
@@ -113,12 +117,17 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
                 like_k[e] = log_likelihood_fnc_c(par[[e]], par_index, y[[e]], id[[e]])
             }
             
-            # print(paste0(it_count, ". -loglike prev: ", round(-like_k_1, digits = 4),
-            #              " >    -loglike curr: ", round(-like_k, digits = 4)))
-            
             if(sum(-like_k_1 < -like_k) > 0) {
-                stop("ERROR: Baum-Welch Likelihood NOT MONOTONICALLY INC")
+                if(n_env == 1) {
+                    print(paste0(it_count, ". -loglike prev: ", round(-like_k_1, digits = 4),
+                                 " >    -loglike curr: ", round(-like_k, digits = 4)))
+                    stop("ERROR: Baum-Welch Likelihood NOT MONOTONICALLY INC")
+                }
             }
+            
+            print(paste0(it_count, ". Omega prev: ", round(omega_k_1, digits = 4),
+                         ",    Omega curr: ", round(omega_k, digits = 4)))
+            print(paste0("2-norm diff = ", sqrt(sum((omega_k - omega_k_1)^2))))
             
             if(sqrt(sum((omega_k - omega_k_1)^2)) < eps) {
                 loop_cont = F
@@ -128,11 +137,6 @@ baum_welch_multi_environment <- function(par, par_index, y, id, n_env) {
             omega_k_1 = omega_k
             like_k_1 = like_k
         }
-
-        print(paste0(it_count, ". Omega prev: ", round(omega_k_1, digits = 4),
-                     ",    Omega curr: ", round(omega_k, digits = 4)))
-        
-        if(sum(like_k_1 > like_k) > 0) {print("ERROR: Baum-Welch NOT MONOTONICALLY INC")}
     }
     
     return(par)

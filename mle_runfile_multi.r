@@ -12,10 +12,10 @@ print(ind)
 simulation = T
 
 # Initial values
-init_val = c(c(matrix(c(0.49, 0.01, 0.50,
-                        0.40, 0.20, 0.40,
-                        0.20, 0.05, 0.75), nrow = 3, byrow = T)),
-             0.45, 0.1, 0.45,              # initial probabilities
+init_val = c(c(matrix(c(0.34, 0.33, 0.33,
+                        0.33, 0.34, 0.33,
+                        0.33, 0.33, 0.34), nrow = 3, byrow = T)),
+             0.33, 0.33, 0.34,              # initial probabilities
              0, 0, 0, 0, 0,                # mu_1
              1, 1, 1, 1, 1,                # mu_2
              2, 2, 2, 2, 2,                # mu_3

@@ -199,8 +199,15 @@ arma::mat A_sm_update_c(arma::field<arma::field<arma::mat>> big_gamma,
     arma::mat a_sm_num(3, 3, arma::fill::zeros);
     arma::mat a_sm_den(3, 3, arma::fill::zeros);
     
+    arma::mat A_sm_hat(3, 3, arma::fill::zeros);
+    arma::mat A_sm_hat2(3, 3, arma::fill::zeros);
+    
     for(int ee = 0; ee < n_env; ee++) {
         arma::vec id_unique = arma::unique(id(ee));
+        
+        arma::mat a_sm_num2(3, 3, arma::fill::zeros);
+        arma::mat a_sm_den2(3, 3, arma::fill::zeros);
+        
         for(int i = 0; i < id_unique.n_elem; i++) {
             for(int s = 0; s < 3; s++) {
                 for(int m = 0; m < 3; m++) {
@@ -211,15 +218,21 @@ arma::mat A_sm_update_c(arma::field<arma::field<arma::mat>> big_gamma,
                     arma::vec gamma_i_col_s = gamma_i.col(s).subvec(0, gamma_i.n_rows - 2);
                     
                     a_sm_num(s,m) = a_sm_num(s,m) + arma::accu(xi_i(s)(m));
-                    a_sm_den(s,m) = a_sm_den(s,m) + arma::accu(gamma_i_col_s);       
+                    a_sm_den(s,m) = a_sm_den(s,m) + arma::accu(gamma_i_col_s);    
+                    
+                    a_sm_num2(s,m) = a_sm_num2(s,m) + arma::accu(xi_i(s)(m));
+                    a_sm_den2(s,m) = a_sm_den2(s,m) + arma::accu(gamma_i_col_s);
                 }
             }
         }
+        
+        A_sm_hat2 = A_sm_hat2 + (a_sm_num2 / a_sm_den2);
     }
     
-    arma::mat A_sm_hat = a_sm_num / a_sm_den;
+    A_sm_hat = a_sm_num / a_sm_den;
+    A_sm_hat2 = A_sm_hat2 / n_env;
     
-    return A_sm_hat;
+    return A_sm_hat2;
     
 }
 
